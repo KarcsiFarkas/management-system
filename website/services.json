@@ -1,0 +1,319 @@
+{
+  "global_fields": {
+    "docker": [
+      { "name": "DOMAIN", "label": "Domain", "type": "text", "required": true, "default": "example.local", "placeholder": "example.local" },
+      { "name": "TIMEZONE", "label": "Timezone", "type": "text", "required": false, "default": "Etc/UTC", "placeholder": "Etc/UTC" }
+    ],
+    "nix": [
+      { "name": "time.timeZone", "label": "Timezone", "type": "text", "required": false, "default": "Etc/UTC", "placeholder": "Etc/UTC" },
+      { "name": "networking.domain", "label": "Domain", "type": "text", "required": false, "default": "example.local", "placeholder": "example.local" }
+    ]
+  },
+  "services": [
+    {
+      "id": "syncthing",
+      "name": "Syncthing",
+      "description": "Continuous file synchronization program.",
+      "docker_fields": [
+        { "name": "SYNCTHING_PUID", "label": "User ID", "type": "number", "required": false, "default": "1000" },
+        { "name": "SYNCTHING_PGID", "label": "Group ID", "type": "number", "required": false, "default": "1000" }
+      ],
+      "nix_fields": [
+        { "name": "services.syncthing.user", "label": "User", "type": "text", "required": false, "default": "syncthing" },
+        { "name": "services.syncthing.dataDir", "label": "Data Directory", "type": "text", "required": false, "default": "/var/lib/syncthing" },
+        { "name": "services.syncthing.openDefaultPorts", "label": "Open Default Ports", "type": "checkbox", "required": false, "default": true }
+      ]
+    },
+    {
+      "id": "gitlab",
+      "name": "GitLab",
+      "description": "A complete DevOps platform.",
+      "docker_fields": [
+        { "name": "GITLAB_ROOT_PASSWORD", "label": "Root Password", "type": "password", "required": true, "default": "changeme" },
+        { "name": "GITLAB_EXTERNAL_URL", "label": "External URL", "type": "text", "required": true, "placeholder": "https://gitlab.example.local" },
+        { "name": "GITLAB_OMNIBUS_CONFIG", "label": "Omnibus Config", "type": "text", "required": false, "placeholder": "external_url 'https://gitlab.example.local'" }
+      ],
+      "nix_fields": [
+        { "name": "services.gitlab.host", "label": "Hostname", "type": "text", "required": false, "default": "gitlab.example.local" },
+        { "name": "services.gitlab.port", "label": "Port", "type": "number", "required": false, "default": "443" },
+        { "name": "services.gitlab.https", "label": "Enable HTTPS", "type": "checkbox", "required": false, "default": true }
+      ]
+    },
+    {
+      "id": "immich",
+      "name": "Immich",
+      "description": "Self-hosted photo and video backup.",
+      "docker_fields": [
+        { "name": "IMMICH_VERSION", "label": "Version", "type": "text", "required": false, "default": "release" },
+        { "name": "UPLOAD_LOCATION", "label": "Upload Location", "type": "text", "required": false, "default": "./library" },
+        { "name": "DB_PASSWORD", "label": "Database Password", "type": "password", "required": true, "default": "postgres" }
+      ],
+      "nix_fields": [
+        { "name": "services.immich.openFirewall", "label": "Open Firewall Ports", "type": "checkbox", "required": false, "default": true },
+        { "name": "services.immich.mediaLocation", "label": "Media Location Path", "type": "text", "required": true, "default": "/var/lib/immich/library" }
+      ]
+    },
+    {
+      "id": "pihole",
+      "name": "Pi-hole",
+      "description": "A network-wide ad blocker.",
+      "docker_fields": [
+        { "name": "WEBPASSWORD", "label": "Web Interface Password", "type": "password", "required": false, "placeholder": "Leave empty for random password" },
+        { "name": "DNS1", "label": "Primary DNS", "type": "text", "required": false, "default": "8.8.8.8" },
+        { "name": "DNS2", "label": "Secondary DNS", "type": "text", "required": false, "default": "8.8.4.4" }
+      ],
+      "nix_fields": [
+        { "name": "services.pihole.enable", "label": "Enable Pi-hole", "type": "checkbox", "required": false, "default": true },
+        { "name": "services.pihole.webPassword", "label": "Web Password", "type": "password", "required": false, "placeholder": "Admin interface password" }
+      ]
+    },
+    {
+      "id": "qbittorrent",
+      "name": "qBittorrent",
+      "description": "P2P BitTorrent client.",
+      "docker_fields": [
+        { "name": "QBITTORRENT_PUID", "label": "User ID", "type": "number", "required": false, "default": "1000" },
+        { "name": "QBITTORRENT_PGID", "label": "Group ID", "type": "number", "required": false, "default": "1000" },
+        { "name": "WEBUI_PORT", "label": "Web UI Port", "type": "number", "required": false, "default": "8080" }
+      ],
+      "nix_fields": [
+        { "name": "services.qbittorrent.user", "label": "User", "type": "text", "required": false, "default": "qbittorrent" },
+        { "name": "services.qbittorrent.group", "label": "Group", "type": "text", "required": false, "default": "qbittorrent" },
+        { "name": "services.qbittorrent.openFirewall", "label": "Open Firewall Port", "type": "checkbox", "required": false, "default": true }
+      ]
+    },
+    {
+      "id": "plex",
+      "name": "Plex",
+      "description": "Media streaming server.",
+      "docker_fields": [
+        { "name": "PLEX_CLAIM", "label": "Plex Claim Token", "type": "text", "required": false, "placeholder": "Get from plex.tv/claim" },
+        { "name": "PLEX_UID", "label": "User ID", "type": "number", "required": false, "default": "1000" },
+        { "name": "PLEX_GID", "label": "Group ID", "type": "number", "required": false, "default": "1000" }
+      ],
+      "nix_fields": [
+        { "name": "services.plex.enable", "label": "Enable Plex", "type": "checkbox", "required": false, "default": true },
+        { "name": "services.plex.openFirewall", "label": "Open Firewall Port", "type": "checkbox", "required": false, "default": true },
+        { "name": "services.plex.dataDir", "label": "Data Directory", "type": "text", "required": false, "default": "/var/lib/plex" }
+      ]
+    },
+    {
+      "id": "stirling-pdf",
+      "name": "Stirling PDF",
+      "description": "Web-based PDF manipulation tool.",
+      "docker_fields": [
+        { "name": "DOCKER_ENABLE_SECURITY", "label": "Enable Security", "type": "checkbox", "required": false, "default": false },
+        { "name": "INSTALL_BOOK_AND_ADVANCED_HTML_OPS", "label": "Install Advanced Operations", "type": "checkbox", "required": false, "default": false }
+      ],
+      "nix_fields": [],
+      "notes": "No dedicated NixOS module. Can be run as a package with a custom systemd service."
+    },
+    {
+      "id": "vaultwarden",
+      "name": "Vaultwarden",
+      "description": "Unofficial Bitwarden compatible server.",
+      "docker_fields": [
+        { "name": "VAULTWARDEN_ADMIN_TOKEN", "label": "Admin Token", "type": "password", "required": false, "placeholder": "Generate a secure token" },
+        { "name": "WEBSOCKET_ENABLED", "label": "Enable WebSocket", "type": "checkbox", "required": false, "default": true },
+        { "name": "SIGNUPS_ALLOWED", "label": "Allow Signups", "type": "checkbox", "required": false, "default": true }
+      ],
+      "nix_fields": [
+        { "name": "services.vaultwarden.config.domain", "label": "Domain", "type": "text", "required": false, "default": "vaultwarden.example.local" },
+        { "name": "services.vaultwarden.config.signupsAllowed", "label": "Allow Signups", "type": "checkbox", "required": false, "default": true },
+        { "name": "services.vaultwarden.config.rocketPort", "label": "Port", "type": "number", "required": false, "default": "8222" }
+      ]
+    },
+    {
+      "id": "nextcloud",
+      "name": "Nextcloud",
+      "description": "Self-hosted productivity platform.",
+      "docker_fields": [
+        { "name": "NEXTCLOUD_ADMIN_USER", "label": "Admin Username", "type": "text", "required": true, "default": "admin" },
+        { "name": "NEXTCLOUD_ADMIN_PASSWORD", "label": "Admin Password", "type": "password", "required": true, "default": "changeme" },
+        { "name": "MYSQL_PASSWORD", "label": "MySQL Password", "type": "password", "required": false, "default": "nextcloud" },
+        { "name": "MYSQL_DATABASE", "label": "MySQL Database", "type": "text", "required": false, "default": "nextcloud" }
+      ],
+      "nix_fields": [
+        { "name": "services.nextcloud.hostName", "label": "Hostname", "type": "text", "required": false, "default": "nextcloud.example.local" },
+        { "name": "services.nextcloud.config.adminuser", "label": "Admin Username", "type": "text", "required": false, "default": "admin" },
+        { "name": "services.nextcloud.config.dbtype", "label": "Database Type", "type": "text", "required": false, "default": "pgsql" }
+      ]
+    },
+    {
+      "id": "sonarr",
+      "name": "Sonarr",
+      "description": "PVR for TV shows.",
+      "docker_fields": [
+        { "name": "SONARR_PUID", "label": "User ID", "type": "number", "required": false, "default": "1000" },
+        { "name": "SONARR_PGID", "label": "Group ID", "type": "number", "required": false, "default": "1000" },
+        { "name": "SONARR_API_KEY", "label": "API Key", "type": "text", "required": false, "placeholder": "Generated automatically" }
+      ],
+      "nix_fields": [
+        { "name": "services.sonarr.openFirewall", "label": "Open Firewall Port", "type": "checkbox", "required": false, "default": true },
+        { "name": "services.sonarr.user", "label": "User", "type": "text", "required": false, "default": "sonarr" }
+      ]
+    },
+    {
+      "id": "habitica",
+      "name": "Habitica",
+      "description": "A gamified task manager.",
+      "docker_fields": [
+        { "name": "NODE_ENV", "label": "Node Environment", "type": "text", "required": false, "default": "production" },
+        { "name": "ADMIN_EMAIL", "label": "Admin Email", "type": "email", "required": true, "placeholder": "admin@example.com" },
+        { "name": "BASE_URL", "label": "Base URL", "type": "text", "required": true, "placeholder": "https://habitica.example.local" }
+      ],
+      "nix_fields": [],
+      "notes": "No dedicated NixOS module. Can be run as a package with a custom systemd service."
+    },
+    {
+      "id": "seafile",
+      "name": "Seafile",
+      "description": "File hosting and synchronization.",
+      "docker_fields": [
+        { "name": "SEAFILE_ADMIN_EMAIL", "label": "Admin Email", "type": "email", "required": true, "placeholder": "admin@example.com" },
+        { "name": "SEAFILE_ADMIN_PASSWORD", "label": "Admin Password", "type": "password", "required": true, "default": "changeme" },
+        { "name": "SEAFILE_SERVER_HOSTNAME", "label": "Server Hostname", "type": "text", "required": true, "placeholder": "seafile.example.local" }
+      ],
+      "nix_fields": [
+        { "name": "services.seafile.adminEmail", "label": "Admin Email", "type": "email", "required": true, "placeholder": "admin@example.com" },
+        { "name": "services.seafile.initialAdminPassword", "label": "Initial Admin Password", "type": "password", "required": true, "default": "changeme" },
+        { "name": "services.seafile.seafileSettings.SERVICE_URL", "label": "Service URL", "type": "text", "required": true, "placeholder": "https://seafile.example.local" }
+      ]
+    },
+    {
+      "id": "firefly-iii",
+      "name": "Firefly III",
+      "description": "Personal finance manager.",
+      "docker_fields": [
+        { "name": "APP_KEY", "label": "Application Key", "type": "text", "required": true, "placeholder": "Generate 32-character key" },
+        { "name": "DB_CONNECTION", "label": "Database Connection", "type": "text", "required": false, "default": "mysql" },
+        { "name": "DB_PASSWORD", "label": "Database Password", "type": "password", "required": true, "default": "firefly" }
+      ],
+      "nix_fields": [
+        { "name": "services.firefly-iii.virtualHost", "label": "Firefly III Hostname", "type": "text", "required": true, "placeholder": "firefly.example.local" },
+        { "name": "services.firefly-iii.appKeyFile", "label": "App Key File", "type": "text", "required": false, "default": "/var/lib/firefly-iii/app-key" }
+      ]
+    },
+    {
+      "id": "openvpn",
+      "name": "OpenVPN",
+      "description": "VPN server.",
+      "docker_fields": [
+        { "name": "OVPN_DATA", "label": "OpenVPN Data Volume", "type": "text", "required": false, "default": "ovpn-data-example" },
+        { "name": "EASYRSA_REQ_CN", "label": "Certificate Common Name", "type": "text", "required": false, "placeholder": "vpn.example.local" }
+      ],
+      "nix_fields": [
+        { "name": "services.openvpn.servers.server.config", "label": "OpenVPN Config", "type": "text", "required": true, "placeholder": "OpenVPN server configuration" },
+        { "name": "services.openvpn.servers.server.autoStart", "label": "Auto Start", "type": "checkbox", "required": false, "default": true }
+      ]
+    },
+    {
+      "id": "freshrss",
+      "name": "FreshRSS",
+      "description": "RSS feed aggregator.",
+      "docker_fields": [
+        { "name": "FRESHRSS_PUID", "label": "User ID", "type": "number", "required": false, "default": "1000" },
+        { "name": "FRESHRSS_PGID", "label": "Group ID", "type": "number", "required": false, "default": "1000" },
+        { "name": "CRON_MIN", "label": "Cron Minutes", "type": "text", "required": false, "default": "1,31" }
+      ],
+      "nix_fields": [
+        { "name": "services.freshrss.enable", "label": "Enable FreshRSS", "type": "checkbox", "required": false, "default": true },
+        { "name": "services.freshrss.virtualHost", "label": "Virtual Host", "type": "text", "required": false, "default": "freshrss.example.local" },
+        { "name": "services.freshrss.database.type", "label": "Database Type", "type": "text", "required": false, "default": "sqlite" }
+      ]
+    },
+    {
+      "id": "navidrome",
+      "name": "Navidrome",
+      "description": "Music streaming server.",
+      "docker_fields": [
+        { "name": "ND_MUSICFOLDER", "label": "Music Folder", "type": "text", "required": true, "default": "/music" },
+        { "name": "ND_DATAFOLDER", "label": "Data Folder", "type": "text", "required": false, "default": "/data" },
+        { "name": "ND_LOGLEVEL", "label": "Log Level", "type": "text", "required": false, "default": "info" }
+      ],
+      "nix_fields": [
+        { "name": "services.navidrome.settings.MusicFolder", "label": "Music Folder Path", "type": "text", "required": true, "default": "/var/lib/navidrome/music" },
+        { "name": "services.navidrome.settings.DataFolder", "label": "Data Folder Path", "type": "text", "required": false, "default": "/var/lib/navidrome/data" }
+      ]
+    },
+    {
+      "id": "radarr",
+      "name": "Radarr",
+      "description": "Movie collection manager.",
+      "docker_fields": [
+        { "name": "RADARR_PUID", "label": "User ID", "type": "number", "required": false, "default": "1000" },
+        { "name": "RADARR_PGID", "label": "Group ID", "type": "number", "required": false, "default": "1000" },
+        { "name": "RADARR_API_KEY", "label": "API Key", "type": "text", "required": false, "placeholder": "Generated automatically" }
+      ],
+      "nix_fields": [
+        { "name": "services.radarr.openFirewall", "label": "Open Firewall Port", "type": "checkbox", "required": false, "default": true },
+        { "name": "services.radarr.user", "label": "User", "type": "text", "required": false, "default": "radarr" }
+      ]
+    },
+    {
+      "id": "homepage",
+      "name": "Homepage",
+      "description": "A customizable application dashboard.",
+      "docker_fields": [
+        { "name": "HOMEPAGE_PUID", "label": "User ID", "type": "number", "required": false, "default": "1000" },
+        { "name": "HOMEPAGE_PGID", "label": "Group ID", "type": "number", "required": false, "default": "1000" }
+      ],
+      "nix_fields": [
+        { "name": "services.homepage-dashboard.openFirewall", "label": "Open Firewall Port", "type": "checkbox", "required": false, "default": true },
+        { "name": "services.homepage-dashboard.listenPort", "label": "Listen Port", "type": "number", "required": false, "default": "3000" }
+      ]
+    },
+    {
+      "id": "youtubedl-material",
+      "name": "YoutubeDL-Material",
+      "description": "Web UI for youtube-dl.",
+      "docker_fields": [
+        { "name": "YTDL_PUID", "label": "User ID", "type": "number", "required": false, "default": "1000" },
+        { "name": "YTDL_PGID", "label": "Group ID", "type": "number", "required": false, "default": "1000" },
+        { "name": "ytdl_mongodb_connection_string", "label": "MongoDB Connection", "type": "text", "required": false, "default": "mongodb://ytdl-mongo-db:27017" }
+      ],
+      "nix_fields": [],
+      "notes": "No dedicated NixOS module. Can be run as a package with a custom systemd service."
+    },
+    {
+      "id": "fittracker",
+      "name": "FitTracker",
+      "description": "Track outdoor activities from GPX files.",
+      "docker_fields": [
+        { "name": "FITTRACKER_PUID", "label": "User ID", "type": "number", "required": false, "default": "1000" },
+        { "name": "FITTRACKER_PGID", "label": "Group ID", "type": "number", "required": false, "default": "1000" }
+      ],
+      "nix_fields": [],
+      "notes": "No dedicated NixOS module. Can be run as a package with a custom systemd service."
+    },
+    {
+      "id": "vikunja",
+      "name": "Vikunja",
+      "description": "Open-source to-do list application.",
+      "docker_fields": [
+        { "name": "VIKUNJA_DATABASE_TYPE", "label": "Database Type", "type": "text", "required": false, "default": "mysql" },
+        { "name": "VIKUNJA_DATABASE_PASSWORD", "label": "Database Password", "type": "password", "required": true, "default": "vikunja" },
+        { "name": "VIKUNJA_SERVICE_JWTSECRET", "label": "JWT Secret", "type": "password", "required": true, "placeholder": "Generate a secure secret" }
+      ],
+      "nix_fields": [
+        { "name": "services.vikunja.frontendHostname", "label": "Frontend Hostname", "type": "text", "required": false, "default": "vikunja.example.local" },
+        { "name": "services.vikunja.port", "label": "Port", "type": "number", "required": false, "default": "3456" },
+        { "name": "services.vikunja.database.type", "label": "Database Type", "type": "text", "required": false, "default": "postgres" }
+      ]
+    },
+    {
+      "id": "jellyfin",
+      "name": "Jellyfin",
+      "description": "Self-hosted media streaming server.",
+      "docker_fields": [
+        { "name": "JELLYFIN_PUBLISHED_SERVER_URL", "label": "Published Server URL", "type": "text", "required": false, "placeholder": "https://jellyfin.example.local" },
+        { "name": "JELLYFIN_PUID", "label": "User ID", "type": "number", "required": false, "default": "1000" },
+        { "name": "JELLYFIN_PGID", "label": "Group ID", "type": "number", "required": false, "default": "1000" }
+      ],
+      "nix_fields": [
+        { "name": "services.jellyfin.openFirewall", "label": "Open Firewall Port", "type": "checkbox", "required": false, "default": true },
+        { "name": "services.jellyfin.user", "label": "User", "type": "text", "required": false, "default": "jellyfin" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,134 @@
+{% extends "layout.html" %}
+{% block content %}
+<form action="{{ url_for('generate') }}" method="post" id="profile-form">
+    <div class="card">
+        <h2>User and Deployment Type</h2>
+        <label for="username">Username</label>
+        {% if profile_data %}
+        <input type="text" id="username" name="username" value="{{ profile_data.username }}" required readonly>
+        {% else %}
+        <input type="text" id="username" name="username" value="" required>
+        {% endif %}
+        <p class="help-text">This will be the name of the git branch. Cannot be changed after creation.</p>
+
+        <label>Deployment Type</label>
+        <div class="radio-group">
+            {% if not profile_data or profile_data.deployment_type == 'docker' %}
+            <input type="radio" id="type_docker" name="deployment_type" value="docker" checked>
+            {% else %}
+            <input type="radio" id="type_docker" name="deployment_type" value="docker">
+            {% endif %}
+            <label for="type_docker">Docker Compose</label>
+            
+            {% if profile_data and profile_data.deployment_type == 'nix' %}
+            <input type="radio" id="type_nix" name="deployment_type" value="nix" checked>
+            {% else %}
+            <input type="radio" id="type_nix" name="deployment_type" value="nix">
+            {% endif %}
+            <label for="type_nix">NixOS</label>
+        </div>
+    </div>
+
+    <div id="docker-fields" class="deployment-fields">
+        <div class="card">
+            <h3>Global Docker Settings</h3>
+            {% for field in config.global_fields.docker %}
+                <label for="{{ field.name }}">{{ field.label }}</label>
+                {% set field_value = profile_data[field.name] if profile_data and field.name in profile_data else field.default|default('') %}
+                {% if field.required %}
+                <input type="{{ field.type }}" name="{{ field.name }}" id="{{ field.name }}" value="{{ field_value }}" placeholder="{{ field.placeholder|default('') }}" required>
+                {% else %}
+                <input type="{{ field.type }}" name="{{ field.name }}" id="{{ field.name }}" value="{{ field_value }}" placeholder="{{ field.placeholder|default('') }}">
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+    <div id="nix-fields" class="deployment-fields">
+        <div class="card">
+            <h3>Global NixOS Settings</h3>
+            {% for field in config.global_fields.nix %}
+                <label for="{{ field.name }}">{{ field.label }}</label>
+                {% set field_value = profile_data[field.name] if profile_data and field.name in profile_data else field.default|default('') %}
+                {% if field.required %}
+                <input type="{{ field.type }}" name="{{ field.name }}" id="{{ field.name }}" value="{{ field_value }}" placeholder="{{ field.placeholder|default('') }}" required>
+                {% else %}
+                <input type="{{ field.type }}" name="{{ field.name }}" id="{{ field.name }}" value="{{ field_value }}" placeholder="{{ field.placeholder|default('') }}">
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Select Services</h2>
+        {% for service in config.services %}
+        <div class="service-item">
+            {% if profile_data and service.id in profile_data.services %}
+            <input type="checkbox" id="service_{{ service.id }}" name="service_{{ service.id }}" checked>
+            {% else %}
+            <input type="checkbox" id="service_{{ service.id }}" name="service_{{ service.id }}">
+            {% endif %}
+            <label for="service_{{ service.id }}"><strong>{{ service.name }}</strong>: {{ service.description }}</label>
+            
+            <div class="service-options">
+                <div class="docker-fields deployment-fields">
+                {% for field in service.docker_fields %}
+                    <label for="{{ field.name }}">{{ field.label }}</label>
+                    {% set field_value = profile_data[field.name] if profile_data and field.name in profile_data else field.default|default('') %}
+                    {% if field.required %}
+                    <input type="{{ field.type }}" name="{{ field.name }}" id="{{ field.name }}" value="{{ field_value }}" required>
+                    {% else %}
+                    <input type="{{ field.type }}" name="{{ field.name }}" id="{{ field.name }}" value="{{ field_value }}">
+                    {% endif %}
+                {% endfor %}
+                </div>
+                <div class="nix-fields deployment-fields">
+                {% for field in service.nix_fields %}
+                    <label for="{{ field.name }}">{{ field.label }}</label>
+                    {% if field.type == 'checkbox' %}
+                        {% if (profile_data and profile_data[field.name] == 'true') or (not profile_data and field.default) %}
+                        <input type="checkbox" name="{{ field.name }}" id="{{ field.name }}" checked>
+                        {% else %}
+                        <input type="checkbox" name="{{ field.name }}" id="{{ field.name }}">
+                        {% endif %}
+                    {% else %}
+                        {% set field_value = profile_data[field.name] if profile_data and field.name in profile_data else field.default|default('') %}
+                        {% if field.required %}
+                        <input type="{{ field.type }}" name="{{ field.name }}" id="{{ field.name }}" value="{{ field_value }}" required>
+                        {% else %}
+                        <input type="{{ field.type }}" name="{{ field.name }}" id="{{ field.name }}" value="{{ field_value }}">
+                        {% endif %}
+                    {% endif %}
+                {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <button type="submit" class="button primary">Generate Profile</button>
+</form>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('profile-form');
+        
+        function toggleFields() {
+            const selectedType = form.querySelector('input[name="deployment_type"]:checked').value;
+            document.querySelectorAll('.deployment-fields').forEach(el => {
+                if (el.classList.contains(selectedType + '-fields')) {
+                    el.style.display = 'block';
+                } else {
+                    el.style.display = 'none';
+                }
+            });
+        }
+
+        form.querySelectorAll('input[name="deployment_type"]').forEach(radio => {
+            radio.addEventListener('change', toggleFields);
+        });
+
+        toggleFields(); // Initial call
+    });
+</script>
+{% endblock %}
