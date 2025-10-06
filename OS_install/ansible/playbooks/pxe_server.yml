@@ -1,0 +1,17 @@
+---
+- name: Configure PXE server (dnsmasq + iPXE + HTTP) and host entries
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - "{{ playbook_dir }}/../../configs/defaults.yaml"
+  roles:
+    - role: pxe
+      vars:
+        pxe_hosts:
+          - hostname: "{{ network.hostname }}"
+            mac: "{{ (network.interfaces | first).mac | default(omit) }}"
+            os: "{{ hostvars[inventory_hostname]['os'] | default('ubuntu') }}"
+            kernel_params: >-
+              {{ 'autoinstall ds=nocloud-net;s=http://pxe.local/autoinstall/' ~ network.hostname ~ '/'
+                 if hostvars[inventory_hostname]['os'] == 'ubuntu'
+                 else 'copytoram init=/nix/installer' }}

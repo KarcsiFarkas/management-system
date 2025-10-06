@@ -1,0 +1,40 @@
+#cloud-config
+autoinstall:
+  version: 1
+  locale: en_US
+  keyboard: { layout: us }
+  identity:
+    hostname: "{{ network.hostname }}"
+    username: "{{ (users | selectattr('sudo') | map(attribute='username') | list | first) | default('devops') }}"
+    password: "$6$rounds=4096$KJ..." # optional (prefer SSH keys)
+  ssh:
+    install-server: true
+    authorized-keys:
+      {% for u in users %}
+      {% for k in u.ssh_authorized_keys %}
+      - "{{ k }}"
+      {% endfor %}
+      {% endfor %}
+  storage:
+    {{ partitioning | default({}, true) | to_nice_yaml(indent=4) }}
+  network:
+    {% if network.dhcp %}
+    network:
+      version: 2
+      ethernets:
+        ens18: { dhcp4: true }
+    {% else %}
+    network:
+      version: 2
+      ethernets:
+        ens18:
+          addresses: [ "{{ network.address_cidr }}" ]
+          gateway4: "{{ network.gateway }}"
+          nameservers: { addresses: {{ network.dns | to_json }} }
+    {% endif %}
+  packages: {{ packages | to_json }}
+  late-commands:
+    {% if docker_enabled %}
+    - curtin in-target -- apt-get update
+    - curtin in-target -- sh -c 'curl -fsSL https://get.docker.com | sh'
+    {% endif %}

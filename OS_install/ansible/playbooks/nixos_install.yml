@@ -1,0 +1,55 @@
+---
+- name: NixOS minimal install
+  hosts: nixos
+  become: false
+  vars:
+    # For PXE/ISO live environment: install via nixos-install using rendered configuration.nix
+    nixos_config_path: /etc/nixos/configuration.nix
+  tasks:
+    - name: Wait for SSH (live ISO or already installed)
+      wait_for:
+        port: 22
+        delay: 5
+        timeout: 900
+
+    - name: Push NixOS configuration
+      become: true
+      copy:
+        dest: "{{ nixos_config_path }}"
+        mode: "0644"
+        content: |
+          { config, pkgs, ... }:
+          {
+            networking.hostName = "{{ network.hostname }}";
+            networking.useDHCP = {{ 'true' if network.dhcp else 'false' }};
+            {{ '- networking.defaultGateway = "' ~ network.gateway ~ '";' if network.gateway else '' }}
+            {{ '- networking.nameservers = ' ~ (network.dns | to_json) ~ ';' if network.dns else '' }}
+            services.openssh.enable = true;
+            users.users = {
+              {% for u in users %}
+              {{ u.username }} = {
+                isNormalUser = true;
+                extraGroups = [ "wheel" ];
+                openssh.authorizedKeys.keys = {{ u.ssh_authorized_keys | to_json }};
+              };
+              {% endfor %}
+            };
+            security.sudo.wheelNeedsPassword = false;
+            environment.systemPackages = with pkgs; {{ packages | default([]) | to_json }};
+            {{ '# Optional services' }}
+            {% for svc in nix_services %}
+            services.{{ svc }}.enable = true;
+            {% endfor %}
+          }
+
+    - name: Run nixos-install (if not installed)
+      become: true
+      shell: |
+        if [ ! -e /etc/NIXOS ]; then
+          nixos-install --no-root-passwd
+        fi
+
+    - name: Reboot to installed system (if needed)
+      become: true
+      reboot:
+        reboot_timeout: 900

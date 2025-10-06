@@ -1,0 +1,16 @@
+version: 2
+ethernets:
+  {% for iface in network.interfaces %}
+  {{ iface.bridge | default('ens18') }}:
+    {% if network.dhcp %}
+    dhcp4: true
+    {% else %}
+    addresses: [ "{{ network.address_cidr }}" ]
+    gateway4: "{{ network.gateway }}"
+    nameservers:
+      addresses: {{ network.dns | to_json }}
+    {% endif %}
+    {% if iface.mtu %}
+    mtu: {{ iface.mtu }}
+    {% endif %}
+  {% endfor %}

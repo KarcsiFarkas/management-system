@@ -1,0 +1,72 @@
+---
+- name: Ubuntu minimal install (autoinstall or cloud-init image) + Docker optional
+  hosts: ubuntu
+  become: true
+  vars:
+    minimal_pkgs: [vim, curl, ca-certificates, net-tools]
+  tasks:
+    - name: Wait for SSH (host up)
+      wait_for:
+        port: 22
+        delay: 5
+        timeout: 900
+
+    - name: Ensure minimal packages
+      apt:
+        name: "{{ minimal_pkgs }}"
+        state: present
+        update_cache: true
+
+    - name: Ensure users and SSH keys
+      loop: "{{ users }}"
+      loop_control: { loop_var: u }
+      user:
+        name: "{{ u.username }}"
+        shell: "{{ u.shell | default('/bin/bash') }}"
+        groups: "{{ 'sudo' if u.sudo else omit }}"
+        state: present
+      register: created_users
+
+    - name: Authorized keys
+      authorized_key:
+        user: "{{ item.0.username }}"
+        key: "{{ item.1 }}"
+      with_subelements:
+        - "{{ users }}"
+        - ssh_authorized_keys
+
+    - name: Configure netplan (static if requested)
+      when: not network.dhcp
+      copy:
+        dest: /etc/netplan/01-installer-config.yaml
+        content: |
+          network:
+            version: 2
+            ethernets:
+              {{ (network.interfaces[0].bridge | default('ens18')) }}:
+                addresses: [ "{{ network.address_cidr }}" ]
+                gateway4: "{{ network.gateway }}"
+                nameservers:
+                  addresses: {{ network.dns | to_nice_yaml(indent=10) }}
+
+    - name: Apply netplan (if changed)
+      command: netplan apply
+      when: not network.dhcp
+
+    - name: Install Docker (optional)
+      when: docker_enabled | bool
+      block:
+        - name: Setup apt keyrings + repo
+          shell: |
+            set -e
+            install -m 0755 -d /etc/apt/keyrings
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+            chmod a+r /etc/apt/keyrings/docker.gpg
+            . /etc/os-release
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+            ${VERSION_CODENAME} stable" > /etc/apt/sources.list.d/docker.list
+        - apt:
+            update_cache: true
+        - apt:
+            name: [docker-ce, docker-ce-cli, containerd.io, docker-buildx-plugin, docker-compose-plugin]
+            state: present

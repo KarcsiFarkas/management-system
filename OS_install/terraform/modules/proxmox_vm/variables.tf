@@ -1,0 +1,9 @@
+variable "name"        { type = string }
+variable "cpus"        { type = number }
+variable "memory_mb"   { type = number }
+variable "disks"       { type = any }
+variable "netifs"      { type = any }
+variable "boot_method" { type = string }
+variable "proxmox"     { type = any }
+variable "image_urls"  { type = any }
+variable "install"     { type = any }

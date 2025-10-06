@@ -1,0 +1,59 @@
+installs:
+  web-01:
+    os: ubuntu
+    version: "24.04"
+    docker: true
+    packages: [jq, htop]
+    users:
+      - username: devops
+        sudo: true
+        ssh_authorized_keys:
+          - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMYoursamplekey user@laptop"
+    network:
+      hostname: web-01
+      domain: lab.local
+      dhcp: false
+      address_cidr: "192.168.30.10/24"
+      gateway: "192.168.30.1"
+      dns: ["1.1.1.1", "9.9.9.9"]
+      interfaces:
+        - bridge: vmbr0
+          vlan: 30
+          model: virtio
+
+  ci-runner-01:
+    os: ubuntu
+    version: "24.04"
+    docker: true
+    users:
+      - username: runner
+        sudo: true
+        ssh_authorized_keys:
+          - "ssh-ed25519 AAAAC3Nza... runner@host"
+    network:
+      hostname: ci-runner-01
+      dhcp: true
+      interfaces:
+        - bridge: vmbr0
+          vlan: 20
+
+  baremetal-01:
+    os: nixos
+    version: "24.05"
+    nix_services: [openssh]
+    packages: [htop, git]
+    users:
+      - username: ops
+        sudo: true
+        ssh_authorized_keys:
+          - "ssh-ed25519 AAAAC3Nza... ops@host"
+    network:
+      hostname: baremetal-01
+      domain: lab.local
+      dhcp: false
+      address_cidr: "192.168.10.50/24"
+      gateway: "192.168.10.1"
+      dns: ["1.1.1.1"]
+      interfaces:
+        - bridge: eno1
+          mac: "52:54:00:aa:bb:cc"

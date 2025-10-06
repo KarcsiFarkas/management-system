@@ -1,0 +1,7 @@
+---
+# NixOS services role tasks
+# This role would contain tasks for NixOS service configuration
+# Implementation details not provided in the specification
+- name: Placeholder for NixOS services tasks
+  debug:
+    msg: "NixOS services role - implementation to be added"

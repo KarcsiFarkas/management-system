@@ -1,0 +1,18 @@
+terraform_backend: {}  # local state by default; plug remote backends later
+
+image_catalog:
+  ubuntu_iso_url: "https://releases.ubuntu.com/24.04/ubuntu-24.04.1-live-server-amd64.iso"
+  ubuntu_image_url: "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
+  nixos_iso_url: "https://channels.nixos.org/nixos-24.05/latest-nixos-minimal-x86_64-linux.iso"
+
+proxmox_provider:
+  pm_api_url: "https://proxmox.example:8006/api2/json"
+  # Auth via env:
+  #   PM_API_TOKEN_ID=terraform@pve!iac  PM_API_TOKEN_SECRET=...
+
+ansible_defaults:
+  ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+
+pxe:
+  tftp_root: "/var/lib/tftpboot"
+  http_root: "/var/www/html"

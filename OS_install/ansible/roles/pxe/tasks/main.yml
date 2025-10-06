@@ -1,0 +1,39 @@
+---
+- name: Ensure packages for PXE
+  become: true
+  package:
+    name: [dnsmasq, nginx, syslinux-common, ipxe]
+    state: present
+
+- name: Render iPXE menu
+  become: true
+  template:
+    src: templates/menu.ipxe.j2
+    dest: /var/www/html/menu.ipxe
+    mode: "0644"
+
+- name: Host-specific Ubuntu autoinstall data
+  when: pxe_hosts is defined
+  become: true
+  loop: "{{ pxe_hosts }}"
+  loop_control: { loop_var: ph }
+  block:
+    - name: Create autoinstall dir
+      file:
+        path: "/var/www/html/autoinstall/{{ ph.hostname }}"
+        state: directory
+        mode: "0755"
+
+    - name: user-data
+      template:
+        src: templates/ubuntu-user-data.j2
+        dest: "/var/www/html/autoinstall/{{ ph.hostname }}/user-data"
+        mode: "0644"
+
+    - name: meta-data
+      template:
+        src: templates/ubuntu-meta-data.j2
+        dest: "/var/www/html/autoinstall/{{ ph.hostname }}/meta-data"
+        mode: "0644"
+
+# dnsmasq + nginx config would be here (not shown for brevity)

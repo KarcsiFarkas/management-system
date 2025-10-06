@@ -1,0 +1,34 @@
+#cloud-config
+hostname: {{ network.hostname }}
+{% if network.domain %}
+fqdn: {{ network.hostname }}.{{ network.domain }}
+{% endif %}
+
+users:
+  {% for user in users %}
+  - name: {{ user.username }}
+    {% if user.sudo %}
+    groups: [sudo]
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    {% endif %}
+    shell: {{ user.shell | default('/bin/bash') }}
+    ssh_authorized_keys:
+      {% for key in user.ssh_authorized_keys %}
+      - {{ key }}
+      {% endfor %}
+  {% endfor %}
+
+packages:
+  {% for pkg in packages %}
+  - {{ pkg }}
+  {% endfor %}
+
+{% if docker_enabled %}
+runcmd:
+  - curl -fsSL https://get.docker.com | sh
+  - systemctl enable docker
+  - systemctl start docker
+{% endif %}
+
+ssh_pwauth: false
+disable_root: true

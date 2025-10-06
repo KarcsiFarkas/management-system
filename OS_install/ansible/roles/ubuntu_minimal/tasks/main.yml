@@ -1,0 +1,7 @@
+---
+# Ubuntu minimal role tasks
+# This role would contain tasks for minimal Ubuntu setup
+# Implementation details not provided in the specification
+- name: Placeholder for Ubuntu minimal tasks
+  debug:
+    msg: "Ubuntu minimal role - implementation to be added"

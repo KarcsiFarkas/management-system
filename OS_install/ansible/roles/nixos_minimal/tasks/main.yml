@@ -1,0 +1,7 @@
+---
+# NixOS minimal role tasks
+# This role would contain tasks for minimal NixOS setup
+# Implementation details not provided in the specification
+- name: Placeholder for NixOS minimal tasks
+  debug:
+    msg: "NixOS minimal role - implementation to be added"

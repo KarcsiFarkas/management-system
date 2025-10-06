@@ -1,0 +1,7 @@
+---
+# Ubuntu Docker role tasks
+# This role would contain tasks for Docker installation and configuration on Ubuntu
+# Implementation details not provided in the specification
+- name: Placeholder for Ubuntu Docker tasks
+  debug:
+    msg: "Ubuntu Docker role - implementation to be added"

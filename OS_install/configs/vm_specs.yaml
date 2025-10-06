@@ -1,0 +1,49 @@
+vms:
+  - name: web-01
+    hypervisor: proxmox
+    boot_method: iso       # iso | image | pxe
+    cpus: 4
+    memory_mb: 8192
+    disks:
+      - size_gb: 40
+        storage: local-lvm
+        type: scsi
+    netifs:
+      - bridge: vmbr0
+        vlan: 30
+        model: virtio
+    proxmox:
+      node: pve1
+      storage: local-lvm
+      iso_storage: local
+
+  - name: ci-runner-01
+    hypervisor: proxmox
+    boot_method: image
+    cpus: 4
+    memory_mb: 8192
+    disks:
+      - size_gb: 60
+        storage: local-lvm
+        type: scsi
+    netifs:
+      - bridge: vmbr0
+        vlan: 20
+        model: virtio
+    proxmox:
+      node: pve2
+      storage: local-lvm
+
+  - name: baremetal-01
+    hypervisor: baremetal
+    boot_method: pxe
+    cpus: 8
+    memory_mb: 16384
+    disks:
+      - size_gb: 200
+        storage: "n/a"
+        type: scsi
+    netifs:
+      - bridge: "eno1"
+        vlan: null
+        mac: "52:54:00:aa:bb:cc"

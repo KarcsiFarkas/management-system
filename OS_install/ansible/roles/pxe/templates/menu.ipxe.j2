@@ -1,0 +1,20 @@
+#!ipxe
+dhcp
+set menu-timeout 5000
+:menu
+menu PXE Boot Menu
+item --gap --             ------------------------
+item ubuntu               Ubuntu Autoinstall
+item nixos                NixOS Installer
+choose --timeout ${menu-timeout} target && goto ${target}
+
+:ubuntu
+kernel http://pxe.local/ubuntu/vmlinuz ip=dhcp url=http://pxe.local/ubuntu/rootfs.squashfs autoinstall ds=nocloud-net;s=http://pxe.local/autoinstall/{{ network.hostname }}/
+initrd http://pxe.local/ubuntu/initrd
+boot
+
+:nixos
+kernel http://pxe.local/nixos/vmlinuz
+initrd http://pxe.local/nixos/initrd
+imgargs vmlinuz init=/nix/installer
+boot

@@ -1,0 +1,19 @@
+---
+- name: Common hardening + fqdn + time sync
+  hosts: all
+  become: true
+  tasks:
+    - name: Set hostname
+      hostname:
+        name: "{{ network.hostname }}"
+
+    - name: Ensure /etc/hosts has fqdn
+      lineinfile:
+        path: /etc/hosts
+        line: "127.0.1.1 {{ network.hostname }} {{ (network.hostname ~ '.' ~ network.domain) if network.domain else '' }}"
+        create: yes
+
+    - name: Ensure chrony/ntp
+      package:
+        name: "{{ 'chrony' if ansible_os_family == 'Debian' else 'chrony' }}"
+        state: present
