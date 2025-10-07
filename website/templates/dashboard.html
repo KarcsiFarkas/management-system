@@ -6,6 +6,38 @@
 </div>
 
 <div class="card">
+    <h3>Global & Universal Settings</h3>
+    <form method="POST" action="{{ url_for('views.update_settings') }}">
+        <div class="form-row">
+            <div>
+                <label for="global_domain">Default Domain</label>
+                <input type="text" id="global_domain" name="global_domain" value="{{ current_user.global_domain or 'example.local' }}">
+            </div>
+            <div>
+                <label for="global_timezone">Timezone</label>
+                <input type="text" id="global_timezone" name="global_timezone" value="{{ current_user.global_timezone or 'Etc/UTC' }}">
+            </div>
+        </div>
+        <div class="form-row">
+            <div>
+                <label for="universal_username">Universal Service Username</label>
+                <input type="text" id="universal_username" name="universal_username" value="{{ current_user.universal_username or current_user.username }}">
+                <p class="help-text">This username will be used when creating accounts in your services.</p>
+            </div>
+            <div>
+                <label>Universal Service Password</label>
+                <div class="radio-group">
+                    <input type="radio" id="pass_generate" name="password_mode" value="generate" {% if current_user.password_mode == 'generate' or not current_user.password_mode %}checked{% endif %}>
+                    <label for="pass_generate">Generate unique passwords for each service (Recommended)</label>
+                </div>
+                 <p class="help-text">Credentials will be saved to your Vaultwarden instance after deployment.</p>
+            </div>
+        </div>
+        <button type="submit" class="button primary">Save Settings</button>
+    </form>
+</div>
+
+<div class="card">
     <h3>Your Configurations</h3>
     {% if configs %}
     <ul class="config-list">
@@ -13,7 +45,7 @@
         <li>
             <span>{{ config }}</span>
             <div class="config-actions">
-                <a href="{{ url_for('views.edit_config', config_name=config) }}" class="button">Edit</a>
+                <a href="{{ url_for('views.user_edit_config', config_name=config) }}" class="button">Edit</a>
             </div>
         </li>
         {% endfor %}

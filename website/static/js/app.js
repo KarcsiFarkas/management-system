@@ -17,14 +17,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (lightThemeBtn && darkThemeBtn) {
-        lightThemeBtn.addEventListener('click', () => {
-            localStorage.setItem('theme', 'light');
-            applyTheme('light');
-        });
-        darkThemeBtn.addEventListener('click', () => {
-            localStorage.setItem('theme', 'dark');
-            applyTheme('dark');
-        });
+        lightThemeBtn.addEventListener('click', () => { localStorage.setItem('theme', 'light'); applyTheme('light'); });
+        darkThemeBtn.addEventListener('click', () => { localStorage.setItem('theme', 'dark'); applyTheme('dark'); });
     }
     const savedTheme = localStorage.getItem('theme') || 'dark';
     applyTheme(savedTheme);
@@ -33,7 +27,17 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('profile-form');
     if (!form) return;
 
-    // --- COLLAPSE/EXPAND LOGIC ---
+    // --- DOM ELEMENT SELECTION ---
+    const deploymentTypeRadios = form.querySelectorAll('input[name="deployment_type"]');
+    const serviceCheckboxes = form.querySelectorAll('.service-select-checkbox');
+    const noServicesMessage = document.getElementById('no-services-message');
+    const addAllButton = document.getElementById('add-all-services');
+    const removeAllButton = document.getElementById('remove-all-services');
+    const serviceSearch = document.getElementById('service-search');
+    const serviceList = document.getElementById('service-list').querySelectorAll('li');
+
+    // --- HELPER FUNCTIONS ---
+
     function setCardCollapseState(cardElement, shouldBeCollapsed) {
         const toggleButtonText = cardElement.querySelector('.toggle-text');
         if (shouldBeCollapsed) {
@@ -45,25 +49,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    form.addEventListener('click', function(event) {
-        const header = event.target.closest('.service-card-header');
-        if (header) {
-            const card = header.closest('.service-options-card');
-            // Toggle the current state and mark it as manually toggled
-            setCardCollapseState(card, !card.classList.contains('is-collapsed'));
-            card.setAttribute('data-manual-toggle', 'true');
-        }
-    });
-
-    // --- VALIDATION LOGIC ---
     function validateServiceCard(cardElement) {
         if (!cardElement) return;
-
-        const requiredInputs = cardElement.querySelectorAll('input[required]');
+        const requiredInputs = cardElement.querySelectorAll('input[data-is-required="true"]');
         let isComplete = true;
 
         for (const input of requiredInputs) {
-            if (input.offsetParent !== null && input.value.trim() === '') {
+            if (!input.disabled && input.value.trim() === '') {
                 isComplete = false;
                 break;
             }
@@ -75,54 +67,35 @@ document.addEventListener('DOMContentLoaded', function() {
             cardElement.classList.remove('is-valid');
         }
 
-        // Set initial state only if it hasn't been manually toggled by the user
         if (!cardElement.hasAttribute('data-manual-toggle')) {
-            setCardCollapseState(cardElement, isComplete); // isComplete being true means it SHOULD be collapsed
+            setCardCollapseState(cardElement, isComplete);
         }
-    }
-
-    form.addEventListener('input', function(event) {
-        const card = event.target.closest('.service-options-card');
-        if (card) {
-            // Live validation should not affect collapse state, only color
-            const requiredInputs = card.querySelectorAll('input[required]');
-            let isComplete = true;
-            for (const input of requiredInputs) {
-                if (input.offsetParent !== null && input.value.trim() === '') {
-                    isComplete = false;
-                    break;
-                }
-            }
-            if (isComplete) {
-                card.classList.add('is-valid');
-            } else {
-                card.classList.remove('is-valid');
-            }
-        }
-    });
-
-    const deploymentTypeRadios = form.querySelectorAll('input[name="deployment_type"]');
-    const serviceCheckboxes = form.querySelectorAll('.service-select-checkbox');
-    const noServicesMessage = document.getElementById('no-services-message');
-    const addAllButton = document.getElementById('add-all-services');
-    const removeAllButton = document.getElementById('remove-all-services');
-
-    function updateRequiredAttributes() {
-        const selectedType = form.querySelector('input[name="deployment_type"]:checked').value;
-        document.querySelectorAll('.docker-fields input[data-is-required]').forEach(input => {
-            input.required = (selectedType === 'docker');
-        });
-        document.querySelectorAll('.nix-fields input[data-is-required]').forEach(input => {
-            input.required = (selectedType === 'nix');
-        });
     }
 
     function toggleDeploymentFields() {
         const selectedType = form.querySelector('input[name="deployment_type"]:checked').value;
         document.querySelectorAll('.deployment-fields').forEach(el => {
-            el.style.display = el.classList.contains(selectedType + '-fields') ? 'block' : 'none';
+            const inputs = el.querySelectorAll('input, select, textarea');
+            const isVisibleTab = el.classList.contains(selectedType + '-fields');
+
+            el.style.display = isVisibleTab ? 'block' : 'none';
+
+            inputs.forEach(input => {
+                const card = input.closest('.service-options-card');
+                // An input should be enabled only if it's in the visible tab AND its card is visible
+                const isCardVisible = !card || card.style.display === 'block';
+
+                if (isVisibleTab && isCardVisible) {
+                    input.disabled = false;
+                    if (input.hasAttribute('data-is-required')) {
+                        input.required = true;
+                    }
+                } else {
+                    input.disabled = true;
+                    input.required = false;
+                }
+            });
         });
-        updateRequiredAttributes();
         document.querySelectorAll('.service-options-card[style*="display: block"]').forEach(validateServiceCard);
     }
 
@@ -133,17 +106,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const card = document.getElementById(cardId);
             if (!card) return;
 
-            const inputs = card.querySelectorAll('input, select, textarea');
-
             if (checkbox.checked) {
                 hasSelectedServices = true;
                 card.style.display = 'block';
-                inputs.forEach(input => input.disabled = false);
-                validateServiceCard(card); // Validate and set initial collapse state
             } else {
                 card.style.display = 'none';
-                inputs.forEach(input => input.disabled = true);
-                card.removeAttribute('data-manual-toggle'); // Reset manual toggle state when hidden
+                card.removeAttribute('data-manual-toggle');
             }
         });
 
@@ -153,25 +121,43 @@ document.addEventListener('DOMContentLoaded', function() {
         toggleDeploymentFields();
     }
 
+    // --- EVENT LISTENERS ---
+
+    form.addEventListener('click', function(event) {
+        const header = event.target.closest('.service-card-header');
+        if (header) {
+            const card = header.closest('.service-options-card');
+            setCardCollapseState(card, !card.classList.contains('is-collapsed'));
+            card.setAttribute('data-manual-toggle', 'true');
+        }
+    });
+
+    form.addEventListener('input', function(event) {
+        const card = event.target.closest('.service-options-card');
+        validateServiceCard(card);
+    });
+
     deploymentTypeRadios.forEach(radio => radio.addEventListener('change', toggleDeploymentFields));
     serviceCheckboxes.forEach(checkbox => checkbox.addEventListener('change', updateSelectedServicesUI));
 
     if (addAllButton) {
         addAllButton.addEventListener('click', () => {
-            serviceCheckboxes.forEach(checkbox => checkbox.checked = true);
+            serviceCheckboxes.forEach(checkbox => {
+                checkbox.checked = true;
+            });
             updateSelectedServicesUI();
         });
     }
 
     if (removeAllButton) {
         removeAllButton.addEventListener('click', () => {
-            serviceCheckboxes.forEach(checkbox => checkbox.checked = false);
+            serviceCheckboxes.forEach(checkbox => {
+                checkbox.checked = false;
+            });
             updateSelectedServicesUI();
         });
     }
 
-    const serviceSearch = document.getElementById('service-search');
-    const serviceList = document.getElementById('service-list').querySelectorAll('li');
     if (serviceSearch) {
         serviceSearch.addEventListener('keyup', () => {
             const filter = serviceSearch.value.toLowerCase();
@@ -182,6 +168,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // --- INITIALIZATION ---
     form.querySelectorAll('input[required]').forEach(input => {
         input.setAttribute('data-is-required', 'true');
     });

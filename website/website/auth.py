@@ -18,7 +18,6 @@ def login():
         user = User.query.filter_by(username=username).first()
         if user and bcrypt.check_password_hash(user.password, password):
             login_user(user, remember=True)
-            flash('Logged in successfully!', category='success')
             return redirect(url_for('views.dashboard'))
         else:
             flash('Login unsuccessful. Please check username and password.', category='error')

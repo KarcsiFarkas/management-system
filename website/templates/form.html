@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 {% block content %}
-<form method="POST">
+<form method="POST" id="profile-form">
     <div class="form-header">
         <div class="card">
             <h2>
@@ -14,7 +14,7 @@
                 <div>
                     <label for="config_name">Configuration Name</label>
                     {% if profile_data %}
-                    <input type="text" id="config_name" name="config_name" value="{{ profile_data.config_name }}" required readonly>
+                    <input type="text" id="config_name" name="config_name" value="{{ profile_data.config_name }}" required disabled>
                     {% else %}
                     <input type="text" id="config_name" name="config_name" required>
                     {% endif %}
@@ -62,25 +62,6 @@
         </div>
 
         <div class="selected-services-column">
-            <div id="global-settings">
-                 <div id="docker-fields" class="deployment-fields card">
-                    <h3>Global Docker Settings</h3>
-                    {% for field in config.global_fields.docker %}
-                        <label for="global_docker_{{ field.name }}">{{ field.label }}</label>
-                        {% set field_value = profile_data[field.name] if profile_data and field.name in profile_data else field.default|default('') %}
-                        <input type="{{ field.type }}" name="{{ field.name }}" id="global_docker_{{ field.name }}" value="{{ field_value }}" placeholder="{{ field.placeholder|default('') }}" {% if field.required %}required{% endif %}>
-                    {% endfor %}
-                </div>
-                <div id="nix-fields" class="deployment-fields card">
-                    <h3>Global NixOS Settings</h3>
-                    {% for field in config.global_fields.nix %}
-                        <label for="global_nix_{{ field.name }}">{{ field.label }}</label>
-                        {% set field_value = profile_data[field.name] if profile_data and field.name in profile_data else field.default|default('') %}
-                        <input type="{{ field.type }}" name="{{ field.name }}" id="global_nix_{{ field.name }}" value="{{ field_value }}" placeholder="{{ field.placeholder|default('') }}" {% if field.required %}required{% endif %}>
-                    {% endfor %}
-                </div>
-            </div>
-
             <h2>Selected Services</h2>
             <div id="selected-services-container">
                 <p id="no-services-message">Select services from the left to configure them here.</p>

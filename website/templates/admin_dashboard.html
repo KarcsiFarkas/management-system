@@ -8,14 +8,31 @@
 {% if branches %}
 <div class="card">
     <h3>Load Existing Profile (All Branches)</h3>
-    <form action="#" method="post"> <select name="branch_name">
-            <option value="" disabled selected>-- Select a branch to inspect --</option>
+    <form id="load-profile-form">
+        <select name="branch_name" id="branch-select" required>
+            <option value="" disabled selected>-- Select a profile to edit --</option>
             {% for branch in branches %}
                 <option value="{{ branch }}">{{ branch }}</option>
             {% endfor %}
         </select>
-        <p class="help-text">This is a read-only view of all branches in the repository.</p>
+        <button type="submit" class="button primary">Edit Selected</button>
     </form>
 </div>
+{% else %}
+<div class="card">
+    <p>No existing profiles found. You can create one using the button in the navigation bar.</p>
+</div>
 {% endif %}
+
+<script>
+    // Simple script to redirect to the correct edit page for the selected branch
+    document.getElementById('load-profile-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const select = document.getElementById('branch-select');
+        const branchName = select.value;
+        if (branchName) {
+            window.location.href = '/edit/' + branchName;
+        }
+    });
+</script>
 {% endblock %}

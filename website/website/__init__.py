@@ -11,7 +11,11 @@ DB_NAME = "users.db"
 
 
 def create_app():
-    app = Flask(__name__, instance_relative_config=True)
+    # Explicitly define template and static folder locations for robustness
+    app = Flask(__name__,
+                instance_relative_config=True,
+                template_folder='../templates',
+                static_folder='../static')
 
     # Ensure the instance folder exists
     try:
@@ -19,14 +23,14 @@ def create_app():
     except OSError:
         pass
 
-    app.config['SECRET_KEY'] = 'a_very_secret_key_change_this'  # Change this to a random string
+    app.config['SECRET_KEY'] = 'a_very_secret_key_change_this'
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(app.instance_path, DB_NAME)}'
 
     db.init_app(app)
     bcrypt.init_app(app)
 
     login_manager.init_app(app)
-    login_manager.login_view = 'auth.login'  # Redirect to login page if user is not authenticated
+    login_manager.login_view = 'auth.login'
 
     from .models import User
 
