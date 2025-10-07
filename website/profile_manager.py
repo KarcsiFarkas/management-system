@@ -117,6 +117,32 @@ def create_or_update_profile(form_data):
     config_env_path = os.path.join(PROFILES_REPO_PATH, 'config.env')
     config_content = ["# Service Configuration Parameters", ""]
 
+    # Add user provisioning configuration
+    universal_username = form_data.get('universal_username', '')
+    password_approach = form_data.get('password_approach', 'generated')
+    universal_password = form_data.get('universal_password', '')
+    vaultwarden_master_password = form_data.get('vaultwarden_master_password', '')
+    auto_provision_users = form_data.get('auto_provision_users', 'false')
+
+    if universal_username or password_approach != 'generated':
+        config_content.extend([
+            "# --- User Provisioning Configuration ---",
+            f"UNIVERSAL_USERNAME=\"{universal_username}\"",
+            f"PASSWORD_APPROACH=\"{password_approach}\"",
+            f"AUTO_PROVISION_USERS=\"{auto_provision_users}\"",
+            ""
+        ])
+
+        # Only store universal password if using user_provided approach
+        if password_approach == 'user_provided' and universal_password:
+            config_content.append(f"UNIVERSAL_PASSWORD=\"{universal_password}\"")
+
+        # Store Vaultwarden master password if using generated approach
+        if password_approach == 'generated' and vaultwarden_master_password:
+            config_content.append(f"VAULTWARDEN_MASTER_PASSWORD=\"{vaultwarden_master_password}\"")
+
+        config_content.append("")
+
     # Add global fields
     global_fields = services_def['global_fields'].get(deployment_type, [])
     for field in global_fields:
