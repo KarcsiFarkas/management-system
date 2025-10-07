@@ -1,0 +1,25 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="dashboard-header">
+    <h2>Welcome, {{ current_user.username }}!</h2>
+    <a href="{{ url_for('views.new_config') }}" class="button primary">Create New Configuration</a>
+</div>
+
+<div class="card">
+    <h3>Your Configurations</h3>
+    {% if configs %}
+    <ul class="config-list">
+        {% for config in configs %}
+        <li>
+            <span>{{ config }}</span>
+            <div class="config-actions">
+                <a href="{{ url_for('views.edit_config', config_name=config) }}" class="button">Edit</a>
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p>You have not created any configurations yet.</p>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,18 +1,24 @@
 {% extends "layout.html" %}
 {% block content %}
-<form action="{{ url_for('generate') }}" method="post" id="profile-form">
+<form method="POST">
     <div class="form-header">
         <div class="card">
-            <h2>User and Deployment Type</h2>
+            <h2>
+                {% if profile_data %}
+                    Editing '{{ profile_data.config_name }}'
+                {% else %}
+                    Create New Configuration
+                {% endif %}
+            </h2>
             <div class="form-row">
                 <div>
-                    <label for="username">Username</label>
+                    <label for="config_name">Configuration Name</label>
                     {% if profile_data %}
-                    <input type="text" id="username" name="username" value="{{ profile_data.username }}" required readonly>
+                    <input type="text" id="config_name" name="config_name" value="{{ profile_data.config_name }}" required readonly>
                     {% else %}
-                    <input type="text" id="username" name="username" value="" required>
+                    <input type="text" id="config_name" name="config_name" required>
                     {% endif %}
-                    <p class="help-text">This will be the name of the git branch. Cannot be changed after creation.</p>
+                    <p class="help-text">This name will be used for the profile branch.</p>
                 </div>
                 <div>
                     <label>Deployment Type</label>

@@ -17,8 +17,10 @@
 <body>
     <nav class="floating-nav">
         <div class="nav-left">
-            <a href="{{ url_for('index') }}" class="button">Home</a>
-            <a href="{{ url_for('discover') }}" class="button">Discover</a>
+            <a href="{{ url_for('views.dashboard') if current_user.is_authenticated else url_for('auth.login') }}" class="button">
+                {% if current_user.is_authenticated %}Dashboard{% else %}Home{% endif %}
+            </a>
+            <a href="{{ url_for('views.discover') }}" class="button">Discover</a>
         </div>
 
         <div class="theme-buttons">
