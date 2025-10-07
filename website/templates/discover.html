@@ -1,0 +1,21 @@
+{% extends "layout.html" %}
+{% block content %}
+    <div class="discover-header">
+        <h2>Discover Services</h2>
+        <p>Explore the services available for deployment.</p>
+    </div>
+    <div class="discover-grid">
+        {% for service in config.services %}
+            <div class="discover-card card">
+                <h3>
+                    {{ service.name }}
+                    <a href="{{ service.url }}" class="external-link-icon" target="_blank" rel="noopener noreferrer" title="Visit official site">🔗</a>
+                </h3>
+                <p>{{ service.description }}</p>
+                <a href="{{ service.url }}" target="_blank" rel="noopener noreferrer" class="button primary">
+                    Visit Site <span>→</span>
+                </a>
+            </div>
+        {% endfor %}
+    </div>
+{% endblock %}

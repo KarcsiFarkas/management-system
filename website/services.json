@@ -13,6 +13,7 @@
     {
       "id": "syncthing",
       "name": "Syncthing",
+      "url": "https://syncthing.net/",
       "description": "Continuous file synchronization program.",
       "docker_fields": [
         { "name": "SYNCTHING_PUID", "label": "User ID", "type": "number", "required": false, "default": "1000" },
@@ -27,6 +28,7 @@
     {
       "id": "gitlab",
       "name": "GitLab",
+      "url": "https://about.gitlab.com/",
       "description": "A complete DevOps platform.",
       "docker_fields": [
         { "name": "GITLAB_ROOT_PASSWORD", "label": "Root Password", "type": "password", "required": true, "default": "changeme" },
@@ -42,6 +44,7 @@
     {
       "id": "immich",
       "name": "Immich",
+      "url": "https://immich.app/",
       "description": "Self-hosted photo and video backup.",
       "docker_fields": [
         { "name": "IMMICH_VERSION", "label": "Version", "type": "text", "required": false, "default": "release" },
@@ -56,6 +59,7 @@
     {
       "id": "pihole",
       "name": "Pi-hole",
+      "url": "https://pi-hole.net/",
       "description": "A network-wide ad blocker.",
       "docker_fields": [
         { "name": "WEBPASSWORD", "label": "Web Interface Password", "type": "password", "required": false, "placeholder": "Leave empty for random password" },
@@ -70,6 +74,7 @@
     {
       "id": "qbittorrent",
       "name": "qBittorrent",
+      "url": "https://www.qbittorrent.org/",
       "description": "P2P BitTorrent client.",
       "docker_fields": [
         { "name": "QBITTORRENT_PUID", "label": "User ID", "type": "number", "required": false, "default": "1000" },
@@ -85,6 +90,7 @@
     {
       "id": "plex",
       "name": "Plex",
+      "url": "https://www.plex.tv/",
       "description": "Media streaming server.",
       "docker_fields": [
         { "name": "PLEX_CLAIM", "label": "Plex Claim Token", "type": "text", "required": false, "placeholder": "Get from plex.tv/claim" },
@@ -100,6 +106,7 @@
     {
       "id": "stirling-pdf",
       "name": "Stirling PDF",
+      "url": "https://github.com/Frooodle/Stirling-PDF",
       "description": "Web-based PDF manipulation tool.",
       "docker_fields": [
         { "name": "DOCKER_ENABLE_SECURITY", "label": "Enable Security", "type": "checkbox", "required": false, "default": false },
@@ -111,6 +118,7 @@
     {
       "id": "vaultwarden",
       "name": "Vaultwarden",
+      "url": "https://github.com/dani-garcia/vaultwarden",
       "description": "Unofficial Bitwarden compatible server.",
       "docker_fields": [
         { "name": "VAULTWARDEN_ADMIN_TOKEN", "label": "Admin Token", "type": "password", "required": false, "placeholder": "Generate a secure token" },
@@ -126,6 +134,7 @@
     {
       "id": "nextcloud",
       "name": "Nextcloud",
+      "url": "https://nextcloud.com/",
       "description": "Self-hosted productivity platform.",
       "docker_fields": [
         { "name": "NEXTCLOUD_ADMIN_USER", "label": "Admin Username", "type": "text", "required": true, "default": "admin" },
@@ -142,6 +151,7 @@
     {
       "id": "sonarr",
       "name": "Sonarr",
+      "url": "https://sonarr.tv/",
       "description": "PVR for TV shows.",
       "docker_fields": [
         { "name": "SONARR_PUID", "label": "User ID", "type": "number", "required": false, "default": "1000" },
@@ -156,6 +166,7 @@
     {
       "id": "habitica",
       "name": "Habitica",
+      "url": "https://habitica.com/static/home",
       "description": "A gamified task manager.",
       "docker_fields": [
         { "name": "NODE_ENV", "label": "Node Environment", "type": "text", "required": false, "default": "production" },
@@ -168,6 +179,7 @@
     {
       "id": "seafile",
       "name": "Seafile",
+      "url": "https://www.seafile.com/en/home/",
       "description": "File hosting and synchronization.",
       "docker_fields": [
         { "name": "SEAFILE_ADMIN_EMAIL", "label": "Admin Email", "type": "email", "required": true, "placeholder": "admin@example.com" },
@@ -183,6 +195,7 @@
     {
       "id": "firefly-iii",
       "name": "Firefly III",
+      "url": "https://www.firefly-iii.org/",
       "description": "Personal finance manager.",
       "docker_fields": [
         { "name": "APP_KEY", "label": "Application Key", "type": "text", "required": true, "placeholder": "Generate 32-character key" },
@@ -197,6 +210,7 @@
     {
       "id": "openvpn",
       "name": "OpenVPN",
+      "url": "https://openvpn.net/",
       "description": "VPN server.",
       "docker_fields": [
         { "name": "OVPN_DATA", "label": "OpenVPN Data Volume", "type": "text", "required": false, "default": "ovpn-data-example" },
@@ -210,6 +224,7 @@
     {
       "id": "freshrss",
       "name": "FreshRSS",
+      "url": "https://freshrss.org/",
       "description": "RSS feed aggregator.",
       "docker_fields": [
         { "name": "FRESHRSS_PUID", "label": "User ID", "type": "number", "required": false, "default": "1000" },
@@ -225,6 +240,7 @@
     {
       "id": "navidrome",
       "name": "Navidrome",
+      "url": "https://www.navidrome.org/",
       "description": "Music streaming server.",
       "docker_fields": [
         { "name": "ND_MUSICFOLDER", "label": "Music Folder", "type": "text", "required": true, "default": "/music" },
@@ -239,6 +255,7 @@
     {
       "id": "radarr",
       "name": "Radarr",
+      "url": "https://radarr.video/",
       "description": "Movie collection manager.",
       "docker_fields": [
         { "name": "RADARR_PUID", "label": "User ID", "type": "number", "required": false, "default": "1000" },
@@ -253,6 +270,7 @@
     {
       "id": "homepage",
       "name": "Homepage",
+      "url": "https://gethomepage.dev/",
       "description": "A customizable application dashboard.",
       "docker_fields": [
         { "name": "HOMEPAGE_PUID", "label": "User ID", "type": "number", "required": false, "default": "1000" },
@@ -266,6 +284,7 @@
     {
       "id": "youtubedl-material",
       "name": "YoutubeDL-Material",
+      "url": "https://github.com/Tzahi12345/YoutubeDL-Material",
       "description": "Web UI for youtube-dl.",
       "docker_fields": [
         { "name": "YTDL_PUID", "label": "User ID", "type": "number", "required": false, "default": "1000" },
@@ -278,6 +297,7 @@
     {
       "id": "fittracker",
       "name": "FitTracker",
+      "url": "https://github.com/samRiff/FitTrackee",
       "description": "Track outdoor activities from GPX files.",
       "docker_fields": [
         { "name": "FITTRACKER_PUID", "label": "User ID", "type": "number", "required": false, "default": "1000" },
@@ -289,6 +309,7 @@
     {
       "id": "vikunja",
       "name": "Vikunja",
+      "url": "https://vikunja.io/",
       "description": "Open-source to-do list application.",
       "docker_fields": [
         { "name": "VIKUNJA_DATABASE_TYPE", "label": "Database Type", "type": "text", "required": false, "default": "mysql" },
@@ -304,6 +325,7 @@
     {
       "id": "jellyfin",
       "name": "Jellyfin",
+      "url": "https://jellyfin.org/",
       "description": "Self-hosted media streaming server.",
       "docker_fields": [
         { "name": "JELLYFIN_PUBLISHED_SERVER_URL", "label": "Published Server URL", "type": "text", "required": false, "placeholder": "https://jellyfin.example.local" },

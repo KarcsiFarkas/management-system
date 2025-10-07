@@ -5,9 +5,8 @@ import profile_manager
 import logging
 
 app = Flask(__name__)
-app.secret_key = 'supersecretkey'  # Replace with a real secret key in production
+app.secret_key = 'supersecretkey'
 
-# --- Logging Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 SERVICES_CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'services.json')
@@ -27,6 +26,12 @@ def index():
         app.logger.error(f"Failed to get existing users: {e}", exc_info=True)
         flash("Error loading user profiles. Please check the 'profiles' repository configuration.", "error")
         return render_template('index.html', users=[])
+
+
+@app.route('/discover')
+def discover():
+    config = load_services_config()
+    return render_template('discover.html', config=config)
 
 
 @app.route('/new')
@@ -71,7 +76,6 @@ def generate():
         flash(f"Profile for '{username}' saved successfully!", 'success')
         app.logger.info(f"Successfully generated/updated profile for '{username}'")
         return redirect(url_for('index'))
-
     except Exception as e:
         app.logger.error(f"An unhandled exception occurred during profile generation: {e}", exc_info=True)
         flash(f"A critical error occurred: {e}", "error")

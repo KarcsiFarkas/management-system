@@ -16,10 +16,8 @@
     --success-text: #0f5132;
     --error-bg: #f8d7da;
     --error-text: #842029;
-
-    /* NEW Validation Colors */
-    --validation-incomplete-color: #a19dff; /* Pastel Purple */
-    --validation-complete-color: #a7ffc4;   /* Pastel Green */
+    --validation-incomplete-color: #a19dff;
+    --validation-complete-color: #a7ffc4;
 }
 
 /* --- Dark (Dracula) Theme --- */
@@ -31,21 +29,18 @@
     --input-bg-color: #282a36;
     --button-bg-color: #44475a;
     --button-text-color: #f8f8f2;
-    --primary-color: #8be9fd; /* Cyan */
+    --primary-color: #8be9fd;
     --primary-text-color: #282a36;
     --shadow-color: rgba(0,0,0,0.4);
     --hover-bg-color: #44475a;
     --nav-bg-color: #21222C;
-    --success-bg: #50fa7b; /* Green */
+    --success-bg: #50fa7b;
     --success-text: #282a36;
-    --error-bg: #ff5555; /* Red */
+    --error-bg: #ff5555;
     --error-text: #f8f8f2;
-
-    /* NEW Validation Colors */
-    --validation-incomplete-color: #ff5555; /* Dracula Red */
-    --validation-complete-color: #8be9fd;   /* Dracula Cyan */
+    --validation-incomplete-color: #ff5555;
+    --validation-complete-color: #8be9fd;
 }
-
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -56,6 +51,7 @@ body {
     transition: background-color 0.3s, color 0.3s;
 }
 
+/* --- Navigation Bar Styles --- */
 .floating-nav {
     position: sticky;
     top: 0;
@@ -71,8 +67,14 @@ body {
     align-items: center;
 }
 
-.floating-nav > .button {
+.nav-left {
+    display: flex;
+    gap: 10px;
+}
+
+.floating-nav .button {
     box-shadow: 0 2px 5px var(--shadow-color);
+    text-decoration: none; /* Remove underline from links styled as buttons */
 }
 
 .theme-buttons {
@@ -208,10 +210,9 @@ label {
 .form-header .form-row { display: flex; gap: 20px; }
 .form-header .form-row > div { flex: 1; }
 .form-columns { display: grid; grid-template-columns: 300px 1fr; gap: 20px; align-items: start; }
-.available-services-column { position: sticky; top: 90px; } /* Adjusted top for nav bar */
+.available-services-column { position: sticky; top: 90px; }
 #service-search { width: 100%; margin-bottom: 15px; }
 
-/* FIX: Remove default list bullets */
 #service-list {
     list-style: none;
     padding: 0;
@@ -223,9 +224,7 @@ label {
 #service-list li:hover { background-color: var(--hover-bg-color); }
 #service-list label { display: inline; font-weight: normal; }
 .selected-services-column #no-services-message { text-align: center; color: #888; padding: 40px; border: 2px dashed var(--border-color); border-radius: 8px; }
-/* (keep all existing CSS until the .service-options-card rule) */
 
-/* --- UPDATED Service Card Styling --- */
 .service-options-card {
     border-left: 4px solid var(--validation-incomplete-color);
     border-right: 4px solid var(--validation-incomplete-color);
@@ -237,21 +236,16 @@ label {
     border-right-color: var(--validation-complete-color);
 }
 
-/* --- NEW Collapsible Card Styles --- */
 .service-card-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     cursor: pointer;
-    margin-bottom: 15px; /* Add space when expanded */
+    margin-bottom: 15px;
 }
 
-.service-card-title h4 {
-    margin: 0;
-}
-.service-card-title .help-text {
-    margin: 5px 0 0 0;
-}
+.service-card-title h4 { margin: 0; }
+.service-card-title .help-text { margin: 5px 0 0 0; }
 
 .toggle-button {
     background-color: var(--button-bg-color);
@@ -270,12 +264,11 @@ label {
 }
 
 .service-card-body {
-    max-height: 2000px; /* A large value to allow content to show */
+    max-height: 2000px;
     overflow: hidden;
     transition: max-height 0.4s ease-in-out, margin-top 0.4s ease-in-out;
 }
 
-/* Styles for when the card is collapsed */
 .service-options-card.is-collapsed .service-card-body {
     max-height: 0;
 }
@@ -285,10 +278,6 @@ label {
 .service-options-card.is-collapsed .toggle-arrow {
     transform: rotate(-90deg);
 }
-
-
-/* (Keep all other CSS rules below this point) */
-.deployment-fields { display: none; }
 
 .form-footer {
     position: sticky;
@@ -315,4 +304,15 @@ label {
 .service-actions .button {
     flex: 1;
     padding: 8px;
+}
+
+.external-link-icon {
+    text-decoration: none;
+    font-size: 0.8em;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+    margin-left: 4px;
+}
+.external-link-icon:hover {
+    opacity: 1;
 }

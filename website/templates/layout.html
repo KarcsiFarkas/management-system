@@ -16,7 +16,10 @@
 </head>
 <body>
     <nav class="floating-nav">
-        <a href="{{ url_for('index') }}" class="button">Home</a>
+        <div class="nav-left">
+            <a href="{{ url_for('index') }}" class="button">Home</a>
+            <a href="{{ url_for('discover') }}" class="button">Discover</a>
+        </div>
 
         <div class="theme-buttons">
             <button type="button" id="theme-btn-light" class="theme-btn">Light</button>
@@ -28,7 +31,7 @@
     <div class="container">
         <header>
             <h1>PaaS Profile Generator</h1>
-            </header>
+        </header>
         <main>
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}

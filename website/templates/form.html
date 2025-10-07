@@ -46,7 +46,10 @@
                            class="service-select-checkbox"
                            data-controls-card="card-{{ service.id }}"
                            {% if profile_data and service.id in profile_data.services %}checked{% endif %}>
-                    <label for="select_{{ service.id }}"><strong>{{ service.name }}</strong></label>
+                    <label for="select_{{ service.id }}">
+                        <strong>{{ service.name }}</strong>
+                        <a href="{{ service.url }}" class="external-link-icon" target="_blank" rel="noopener noreferrer" title="Visit official site">🔗</a>
+                    </label>
                 </li>
                 {% endfor %}
             </ul>
@@ -80,7 +83,10 @@
                 <div id="card-{{ service.id }}" class="service-options-card card" style="display: none;">
                     <div class="service-card-header">
                         <div class="service-card-title">
-                            <h4>{{ service.name }}</h4>
+                            <h4>
+                                {{ service.name }}
+                                <a href="{{ service.url }}" class="external-link-icon" target="_blank" rel="noopener noreferrer" title="Visit official site">🔗</a>
+                            </h4>
                             <p class="help-text">{{ service.description }}</p>
                         </div>
                         <button type="button" class="toggle-button">
