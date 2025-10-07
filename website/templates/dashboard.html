@@ -25,14 +25,20 @@
                 <p class="help-text">This username will be used when creating accounts in your services.</p>
             </div>
             <div>
-                <label>Universal Service Password</label>
-                <div class="radio-group">
-                    <input type="radio" id="pass_generate" name="password_mode" value="generate" {% if current_user.password_mode == 'generate' or not current_user.password_mode %}checked{% endif %}>
-                    <label for="pass_generate">Generate unique passwords for each service (Recommended)</label>
-                </div>
-                 <p class="help-text">Credentials will be saved to your Vaultwarden instance after deployment.</p>
+                <label for="password_mode_select">Generate Unique Passwords For Me (Recommended)</label>
+                <select name="password_mode" id="password_mode_select">
+                    <option value="generate" {% if current_user.password_mode == 'generate' %}selected{% endif %}>Yes</option>
+                    <option value="custom" {% if current_user.password_mode == 'custom' %}selected{% endif %}>No</option>
+                </select>
             </div>
         </div>
+
+        <div id="custom_password_field" style="display: none;">
+            <label for="universal_password_custom">Custom Universal Password</label>
+            <input type="password" id="universal_password_custom" name="universal_password_custom" value="{{ current_user.universal_password_custom or '' }}">
+            <p class="help-text">Warning: Using the same password for multiple services is a security risk.</p>
+        </div>
+
         <button type="submit" class="button primary">Save Settings</button>
     </form>
 </div>

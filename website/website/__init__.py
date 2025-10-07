@@ -11,13 +11,11 @@ DB_NAME = "users.db"
 
 
 def create_app():
-    # Explicitly define template and static folder locations for robustness
     app = Flask(__name__,
                 instance_relative_config=True,
                 template_folder='../templates',
                 static_folder='../static')
 
-    # Ensure the instance folder exists
     try:
         os.makedirs(app.instance_path)
     except OSError:
@@ -38,7 +36,6 @@ def create_app():
     def load_user(user_id):
         return User.query.get(int(user_id))
 
-    # Import and register Blueprints
     from .auth import auth as auth_blueprint
     from .views import views as views_blueprint
 
@@ -47,11 +44,27 @@ def create_app():
 
     with app.app_context():
         db.create_all()
-        # Create an admin user if one doesn't exist
+
+        # --- CORRECTED: Create default admin users if they don't exist ---
+
+        # Create 'admin' user
         if not User.query.filter_by(username='admin').first():
             hashed_password = bcrypt.generate_password_hash('admin').decode('utf-8')
             admin_user = User(username='admin', email='admin@example.com', password=hashed_password, is_admin=True)
             db.session.add(admin_user)
-            db.session.commit()
+
+        # Create 'nix' user
+        if not User.query.filter_by(username='nix').first():
+            hashed_password = bcrypt.generate_password_hash('nix').decode('utf-8')
+            nix_user = User(username='nix', email='nix@nix', password=hashed_password, is_admin=False)
+            db.session.add(nix_user)
+
+        # Create 'docker' user
+        if not User.query.filter_by(username='docker').first():
+            hashed_password = bcrypt.generate_password_hash('docker').decode('utf-8')
+            docker_user = User(username='docker', email='docker@docker', password=hashed_password, is_admin=False)
+            db.session.add(docker_user)
+
+        db.session.commit()
 
     return app

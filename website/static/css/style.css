@@ -181,19 +181,98 @@ label { font-weight: bold; display: block; margin-top: 10px; }
 .form-header .form-row > div { flex: 1; }
 .form-columns { display: grid; grid-template-columns: 300px 1fr; gap: 20px; align-items: start; }
 .available-services-column { position: sticky; top: 90px; }
-#service-list { list-style: none; padding: 0; margin: 0; max-height: 50vh; overflow-y: auto; }
-#service-list li { padding: 8px; border-radius: 4px; cursor: pointer; }
-#service-list li:hover { background-color: var(--hover-bg-color); }
-#service-list label { display: inline-block; font-weight: normal; }
+
+#service-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 50vh;
+    overflow-y: auto;
+}
+#service-list .service-select-checkbox {
+    /* Visually hide checkbox but keep it accessible */
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+}
+#service-list li label {
+    display: block;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    border-left: 4px solid transparent;
+    transition: background-color 0.2s, border-left-color 0.2s;
+    position: relative;
+}
+#service-list li label:hover {
+    background-color: var(--hover-bg-color);
+}
+#service-list li.is-selected label {
+    background-color: var(--hover-bg-color);
+    border-left-color: var(--validation-incomplete-color);
+}
+#service-list li.is-selected.is-valid label {
+    border-left-color: var(--validation-complete-color);
+}
+
 .selected-services-column #no-services-message { text-align: center; color: #888; padding: 40px; border: 2px dashed var(--border-color); border-radius: 8px; }
 
 .service-options-card { border-left: 4px solid var(--validation-incomplete-color); border-right: 4px solid var(--validation-incomplete-color); transition: border-left-color 0.3s ease, border-right-color 0.3s ease; }
 .service-options-card.is-valid { border-left-color: var(--validation-complete-color); border-right-color: var(--validation-complete-color); }
-.service-card-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; margin-bottom: 15px; }
+
+.service-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    cursor: pointer;
+    margin-bottom: 15px;
+}
+.service-card-title {
+    flex-grow: 1;
+}
 .service-card-title h4 { margin: 0; }
 .service-card-title .help-text { margin: 5px 0 0 0; }
-.toggle-button { background-color: var(--button-bg-color); color: var(--button-text-color); border: 1px solid var(--border-color); border-radius: 6px; padding: 5px 10px; display: flex; align-items: center; gap: 8px; font-weight: bold; }
+
+.service-card-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: 15px;
+}
+.toggle-button {
+    background-color: var(--button-bg-color);
+    color: var(--button-text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 5px 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: bold;
+}
 .toggle-arrow { transition: transform 0.3s ease; }
+
+.remove-service-btn {
+    background: none;
+    border: 1px solid var(--border-color);
+    color: var(--border-color);
+    font-size: 16px;
+    font-weight: bold;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    transition: color 0.2s, background-color 0.2s;
+}
+.remove-service-btn:hover {
+    background-color: var(--error-bg);
+    color: var(--error-text);
+    border-color: var(--error-bg);
+}
+
 .service-card-body { max-height: 2000px; overflow: hidden; transition: max-height 0.4s ease-in-out, margin-top 0.4s ease-in-out; }
 .service-options-card.is-collapsed .service-card-body { max-height: 0; }
 .service-options-card.is-collapsed .service-card-header { margin-bottom: 0; }
@@ -205,3 +284,5 @@ label { font-weight: bold; display: block; margin-top: 10px; }
 .service-actions .button { flex: 1; padding: 8px; }
 .external-link-icon { text-decoration: none; font-size: 0.8em; opacity: 0.6; transition: opacity 0.2s; margin-left: 4px; }
 .external-link-icon:hover { opacity: 1; }
+
+.user-list { display: flex; flex-wrap: wrap; gap: 10px; }

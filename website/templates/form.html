@@ -47,12 +47,12 @@
             <ul id="service-list">
                 {% for service in config.services %}
                 <li data-service-id="{{ service.id }}">
-                    <input type="checkbox" id="select_{{ service.id }}"
-                           name="service_{{ service.id }}"
-                           class="service-select-checkbox"
-                           data-controls-card="card-{{ service.id }}"
-                           {% if profile_data and service.id in profile_data.services %}checked{% endif %}>
                     <label for="select_{{ service.id }}">
+                        <input type="checkbox" id="select_{{ service.id }}"
+                               name="service_{{ service.id }}"
+                               class="service-select-checkbox"
+                               data-controls-card="card-{{ service.id }}"
+                               {% if profile_data and service.id in profile_data.services %}checked{% endif %}>
                         <strong>{{ service.name }}</strong>
                         <a href="{{ service.url }}" class="external-link-icon" target="_blank" rel="noopener noreferrer" title="Visit official site">🔗</a>
                     </label>
@@ -76,29 +76,29 @@
                             </h4>
                             <p class="help-text">{{ service.description }}</p>
                         </div>
-                        <button type="button" class="toggle-button">
-                            <span class="toggle-text">Collapse</span>
-                            <span class="toggle-arrow">▼</span>
-                        </button>
+                        <div class="service-card-controls">
+                            <button type="button" class="toggle-button">
+                                <span class="toggle-text">Collapse</span>
+                                <span class="toggle-arrow">▼</span>
+                            </button>
+                            <button type="button" class="remove-service-btn" data-service-id="{{ service.id }}" title="Remove this service">×</button>
+                        </div>
                     </div>
 
                     <div class="service-card-body">
                         <div class="docker-fields deployment-fields">
                             {% for field in service.docker_fields %}
                                 <label for="{{ service.id }}_{{ field.name }}">{{ field.label }}</label>
-                                {% set field_value = profile_data[field.name] if profile_data and field.name in profile_data else field.default|default('') %}
-                                <input type="{{ field.type }}" name="{{ field.name }}" id="{{ service.id }}_{{ field.name }}" value="{{ field_value }}" {% if field.required %}required{% endif %}>
+                                <input type="{{ field.type }}" name="{{ field.name }}" id="{{ service.id }}_{{ field.name }}" value="{{ profile_data[field.name] if profile_data and field.name in profile_data else field.default|default('') }}" {% if field.required %}required{% endif %}>
                             {% endfor %}
                         </div>
                         <div class="nix-fields deployment-fields">
                             {% for field in service.nix_fields %}
                                 <label for="{{ service.id }}_{{ field.name }}">{{ field.label }}</label>
                                 {% if field.type == 'checkbox' %}
-                                    {% set is_checked = (profile_data and profile_data[field.name] == 'true') or (not profile_data and field.default) %}
-                                    <input type="checkbox" name="{{ field.name }}" id="{{ service.id }}_{{ field.name }}" {% if is_checked %}checked{% endif %}>
+                                    <input type="checkbox" name="{{ field.name }}" id="{{ service.id }}_{{ field.name }}" {% if (profile_data and profile_data[field.name] == 'true') or (not profile_data and field.default) %}checked{% endif %}>
                                 {% else %}
-                                    {% set field_value = profile_data[field.name] if profile_data and field.name in profile_data else field.default|default('') %}
-                                    <input type="{{ field.type }}" name="{{ field.name }}" id="{{ service.id }}_{{ field.name }}" value="{{ field_value }}" {% if field.required %}required{% endif %}>
+                                    <input type="{{ field.type }}" name="{{ field.name }}" id="{{ service.id }}_{{ field.name }}" value="{{ profile_data[field.name] if profile_data and field.name in profile_data else field.default|default('') }}" {% if field.required %}required{% endif %}>
                                 {% endif %}
                             {% endfor %}
                         </div>

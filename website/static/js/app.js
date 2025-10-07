@@ -23,7 +23,21 @@ document.addEventListener('DOMContentLoaded', function() {
     const savedTheme = localStorage.getItem('theme') || 'dark';
     applyTheme(savedTheme);
 
-    // --- 2. FORM-SPECIFIC LOGIC ---
+    // --- 2. DASHBOARD-SPECIFIC LOGIC ---
+    const passwordModeSelect = document.getElementById('password_mode_select');
+    const customPasswordField = document.getElementById('custom_password_field');
+
+    function toggleCustomPasswordField() {
+        if (!passwordModeSelect || !customPasswordField) return;
+        customPasswordField.style.display = (passwordModeSelect.value === 'custom') ? 'block' : 'none';
+    }
+
+    if (passwordModeSelect) {
+        passwordModeSelect.addEventListener('change', toggleCustomPasswordField);
+        toggleCustomPasswordField(); // Run on page load
+    }
+
+    // --- 3. FORM-SPECIFIC LOGIC ---
     const form = document.getElementById('profile-form');
     if (!form) return;
 
@@ -37,6 +51,26 @@ document.addEventListener('DOMContentLoaded', function() {
     const serviceList = document.getElementById('service-list').querySelectorAll('li');
 
     // --- HELPER FUNCTIONS ---
+
+    function updateServiceListHighlights() {
+        serviceCheckboxes.forEach(checkbox => {
+            const listItem = checkbox.closest('li');
+            const card = document.getElementById(checkbox.dataset.controlsCard);
+            if (!listItem || !card) return;
+
+            if (checkbox.checked) {
+                listItem.classList.add('is-selected');
+                if (card.classList.contains('is-valid')) {
+                    listItem.classList.add('is-valid');
+                } else {
+                    listItem.classList.remove('is-valid');
+                }
+            } else {
+                listItem.classList.remove('is-selected');
+                listItem.classList.remove('is-valid');
+            }
+        });
+    }
 
     function setCardCollapseState(cardElement, shouldBeCollapsed) {
         const toggleButtonText = cardElement.querySelector('.toggle-text');
@@ -70,6 +104,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!cardElement.hasAttribute('data-manual-toggle')) {
             setCardCollapseState(cardElement, isComplete);
         }
+        updateServiceListHighlights();
     }
 
     function toggleDeploymentFields() {
@@ -82,7 +117,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
             inputs.forEach(input => {
                 const card = input.closest('.service-options-card');
-                // An input should be enabled only if it's in the visible tab AND its card is visible
                 const isCardVisible = !card || card.style.display === 'block';
 
                 if (isVisibleTab && isCardVisible) {
@@ -119,16 +153,27 @@ document.addEventListener('DOMContentLoaded', function() {
             noServicesMessage.style.display = hasSelectedServices ? 'none' : 'block';
         }
         toggleDeploymentFields();
+        updateServiceListHighlights();
     }
 
     // --- EVENT LISTENERS ---
 
     form.addEventListener('click', function(event) {
         const header = event.target.closest('.service-card-header');
-        if (header) {
+        if (header && !event.target.closest('a') && !event.target.closest('.remove-service-btn')) {
             const card = header.closest('.service-options-card');
             setCardCollapseState(card, !card.classList.contains('is-collapsed'));
             card.setAttribute('data-manual-toggle', 'true');
+        }
+
+        const removeBtn = event.target.closest('.remove-service-btn');
+        if (removeBtn) {
+            const serviceId = removeBtn.dataset.serviceId;
+            const checkbox = document.getElementById(`select_${serviceId}`);
+            if (checkbox) {
+                checkbox.checked = false;
+                checkbox.dispatchEvent(new Event('change'));
+            }
         }
     });
 

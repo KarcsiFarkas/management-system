@@ -5,6 +5,18 @@
     <p>View and manage all user profile branches.</p>
 </div>
 
+{% if users %}
+<div class="card">
+    <h3>Impersonate User</h3>
+    <p class="help-text">Click a user to log in as them and view their personal dashboard.</p>
+    <div class="user-list">
+        {% for user in users %}
+            <a href="{{ url_for('views.impersonate', user_id=user.id) }}" class="button">{{ user.username }}</a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
 {% if branches %}
 <div class="card">
     <h3>Load Existing Profile (All Branches)</h3>
@@ -25,7 +37,6 @@
 {% endif %}
 
 <script>
-    // Simple script to redirect to the correct edit page for the selected branch
     document.getElementById('load-profile-form').addEventListener('submit', function(e) {
         e.preventDefault();
         const select = document.getElementById('branch-select');

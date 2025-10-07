@@ -19,7 +19,7 @@
         <div class="nav-left">
             <a href="{{ url_for('views.index') }}" class="button">Admin</a>
             <a href="{{ url_for('views.discover') }}" class="button">Discover</a>
-            <a href="{{ url_for('views.new_config') }}" class="button primary">Create New Profile</a>
+            {% if current_user.is_authenticated %}<a href="{{ url_for('views.new_config') }}" class="button primary">Create New Profile</a>{% endif %}
         </div>
 
         <div class="nav-right">
