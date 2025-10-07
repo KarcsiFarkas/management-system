@@ -4,13 +4,31 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PaaS Profile Generator</title>
+
+    <script>
+        (function() {
+            const theme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
+
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
+    <nav class="floating-nav">
+        <a href="{{ url_for('index') }}" class="button">Home</a>
+
+        <div class="theme-buttons">
+            <button type="button" id="theme-btn-light" class="theme-btn">Light</button>
+            <div class="theme-divider"></div>
+            <button type="button" id="theme-btn-dark" class="theme-btn">Dark</button>
+        </div>
+    </nav>
+
     <div class="container">
         <header>
             <h1>PaaS Profile Generator</h1>
-        </header>
+            </header>
         <main>
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
@@ -24,5 +42,6 @@
             {% block content %}{% endblock %}
         </main>
     </div>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>

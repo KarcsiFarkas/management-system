@@ -1,88 +1,318 @@
+/* --- Light (Pastel) Theme --- */
+:root {
+    --bg-color: #f5f3ff;
+    --text-color: #2c2c2e;
+    --card-bg-color: #ffffff;
+    --border-color: #e0e0e6;
+    --input-bg-color: #ffffff;
+    --button-bg-color: #e4e6eb;
+    --button-text-color: #050505;
+    --primary-color: #a19dff;
+    --primary-text-color: #ffffff;
+    --shadow-color: rgba(0,0,0,0.08);
+    --hover-bg-color: #e9ebee;
+    --nav-bg-color: #fffde7;
+    --success-bg: #d1e7dd;
+    --success-text: #0f5132;
+    --error-bg: #f8d7da;
+    --error-text: #842029;
+
+    /* NEW Validation Colors */
+    --validation-incomplete-color: #a19dff; /* Pastel Purple */
+    --validation-complete-color: #a7ffc4;   /* Pastel Green */
+}
+
+/* --- Dark (Dracula) Theme --- */
+[data-theme="dark"] {
+    --bg-color: #282a36;
+    --text-color: #f8f8f2;
+    --card-bg-color: #21222C;
+    --border-color: #6272a4;
+    --input-bg-color: #282a36;
+    --button-bg-color: #44475a;
+    --button-text-color: #f8f8f2;
+    --primary-color: #8be9fd; /* Cyan */
+    --primary-text-color: #282a36;
+    --shadow-color: rgba(0,0,0,0.4);
+    --hover-bg-color: #44475a;
+    --nav-bg-color: #21222C;
+    --success-bg: #50fa7b; /* Green */
+    --success-text: #282a36;
+    --error-bg: #ff5555; /* Red */
+    --error-text: #f8f8f2;
+
+    /* NEW Validation Colors */
+    --validation-incomplete-color: #ff5555; /* Dracula Red */
+    --validation-complete-color: #8be9fd;   /* Dracula Cyan */
+}
+
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: #f0f2f5;
-    color: #333;
+    background-color: var(--bg-color);
+    color: var(--text-color);
     margin: 0;
-    padding: 20px;
+    padding: 0;
+    transition: background-color 0.3s, color 0.3s;
 }
+
+.floating-nav {
+    position: sticky;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 100;
+    background-color: var(--nav-bg-color);
+    box-shadow: 0 2px 4px var(--shadow-color);
+    padding: 10px 20px;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.floating-nav > .button {
+    box-shadow: 0 2px 5px var(--shadow-color);
+}
+
+.theme-buttons {
+    display: flex;
+    align-items: center;
+    background-color: var(--bg-color);
+    border-radius: 6px;
+    padding: 4px;
+    border: 1px solid var(--border-color);
+}
+
+.theme-btn {
+    padding: 6px 12px;
+    border: none;
+    background-color: transparent;
+    color: var(--text-color);
+    cursor: pointer;
+    font-weight: bold;
+    border-radius: 4px;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.theme-divider {
+    width: 1px;
+    height: 20px;
+    background-color: var(--border-color);
+    margin: 0 4px;
+}
+
+.theme-btn.active-theme {
+    background-color: var(--primary-color);
+    color: var(--primary-text-color);
+}
+
 .container {
-    max-width: 800px;
+    max-width: 1200px;
     margin: 0 auto;
+    padding: 20px;
+    padding-bottom: 100px;
 }
+
+header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
 header h1 {
     text-align: center;
-    color: #1c1e21;
+    color: var(--text-color);
+    margin: 0;
 }
+
 .card {
-    background-color: #fff;
+    background-color: var(--card-bg-color);
     border-radius: 8px;
     padding: 20px;
     margin-bottom: 20px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px var(--shadow-color);
+    border: 1px solid var(--border-color);
 }
+
 .button {
     display: inline-block;
     padding: 10px 20px;
-    background-color: #e4e6eb;
-    color: #050505;
+    background-color: var(--button-bg-color);
+    color: var(--button-text-color);
     border: none;
     border-radius: 6px;
     text-decoration: none;
     font-weight: bold;
     cursor: pointer;
+    text-align: center;
 }
+
 .button.primary {
-    background-color: #1877f2;
-    color: #fff;
+    background-color: var(--primary-color);
+    color: var(--primary-text-color);
 }
-input[type="text"], input[type="password"], select {
+
+input[type="text"], input[type="password"], input[type="email"], input[type="number"], select {
     width: 100%;
-    padding: 8px;
+    padding: 8px 12px;
     margin-top: 5px;
     margin-bottom: 15px;
-    border: 1px solid #dddfe2;
+    border: 1px solid var(--border-color);
+    background-color: var(--input-bg-color);
+    color: var(--text-color);
     border-radius: 6px;
     box-sizing: border-box;
+    font-size: 1em;
 }
+
 label {
     font-weight: bold;
     display: block;
     margin-top: 10px;
 }
+
 .help-text {
     font-size: 0.9em;
-    color: #606770;
+    color: #888;
     margin-top: -10px;
     margin-bottom: 15px;
 }
+
 .radio-group label {
     display: inline-block;
     margin-right: 15px;
     font-weight: normal;
 }
-.service-item {
-    padding: 10px;
-    border-top: 1px solid #eee;
-}
-.service-item:first-child {
-    border-top: none;
-}
-.service-options {
-    padding-left: 25px;
-    margin-top: 10px;
-}
+
 .flash {
     padding: 15px;
     margin-bottom: 20px;
     border-radius: 6px;
+    font-weight: bold;
 }
+
 .flash.success {
-    background-color: #e9f6ec;
-    color: #0f5132;
-    border: 1px solid #badbcc;
+    background-color: var(--success-bg);
+    color: var(--success-text);
+    border: 1px solid var(--success-text);
 }
+
 .flash.error {
-    background-color: #f8d7da;
-    color: #842029;
-    border: 1px solid #f5c2c7;
+    background-color: var(--error-bg);
+    color: var(--error-text);
+    border: 1px solid var(--error-text);
+}
+
+.form-header .form-row { display: flex; gap: 20px; }
+.form-header .form-row > div { flex: 1; }
+.form-columns { display: grid; grid-template-columns: 300px 1fr; gap: 20px; align-items: start; }
+.available-services-column { position: sticky; top: 90px; } /* Adjusted top for nav bar */
+#service-search { width: 100%; margin-bottom: 15px; }
+
+/* FIX: Remove default list bullets */
+#service-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 50vh;
+    overflow-y: auto;
+}
+#service-list li { padding: 8px; border-radius: 4px; cursor: pointer; }
+#service-list li:hover { background-color: var(--hover-bg-color); }
+#service-list label { display: inline; font-weight: normal; }
+.selected-services-column #no-services-message { text-align: center; color: #888; padding: 40px; border: 2px dashed var(--border-color); border-radius: 8px; }
+/* (keep all existing CSS until the .service-options-card rule) */
+
+/* --- UPDATED Service Card Styling --- */
+.service-options-card {
+    border-left: 4px solid var(--validation-incomplete-color);
+    border-right: 4px solid var(--validation-incomplete-color);
+    transition: border-left-color 0.3s ease, border-right-color 0.3s ease;
+}
+
+.service-options-card.is-valid {
+    border-left-color: var(--validation-complete-color);
+    border-right-color: var(--validation-complete-color);
+}
+
+/* --- NEW Collapsible Card Styles --- */
+.service-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    margin-bottom: 15px; /* Add space when expanded */
+}
+
+.service-card-title h4 {
+    margin: 0;
+}
+.service-card-title .help-text {
+    margin: 5px 0 0 0;
+}
+
+.toggle-button {
+    background-color: var(--button-bg-color);
+    color: var(--button-text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 5px 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: bold;
+}
+
+.toggle-arrow {
+    transition: transform 0.3s ease;
+}
+
+.service-card-body {
+    max-height: 2000px; /* A large value to allow content to show */
+    overflow: hidden;
+    transition: max-height 0.4s ease-in-out, margin-top 0.4s ease-in-out;
+}
+
+/* Styles for when the card is collapsed */
+.service-options-card.is-collapsed .service-card-body {
+    max-height: 0;
+}
+.service-options-card.is-collapsed .service-card-header {
+    margin-bottom: 0;
+}
+.service-options-card.is-collapsed .toggle-arrow {
+    transform: rotate(-90deg);
+}
+
+
+/* (Keep all other CSS rules below this point) */
+.deployment-fields { display: none; }
+
+.form-footer {
+    position: sticky;
+    bottom: 20px;
+    text-align: right;
+    z-index: 100;
+    background-color: transparent;
+    border-top: none;
+    box-shadow: none;
+    padding: 0;
+    margin-right: 20px;
+}
+
+.form-footer .button {
+    box-shadow: 0 2px 5px var(--shadow-color);
+}
+
+.service-actions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.service-actions .button {
+    flex: 1;
+    padding: 8px;
 }
