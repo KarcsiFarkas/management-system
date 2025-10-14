@@ -2,47 +2,48 @@
 {% block content %}
 <div class="dashboard-header">
     <h2>Admin Dashboard</h2>
-    <p>View and manage all user profile branches.</p>
+    <p>View and manage all user tenants.</p>
 </div>
 
 {% if users %}
 <div class="card">
-    <h3>Impersonate User</h3>
-    <p class="help-text">Click a user to log in as them and view their personal dashboard.</p>
+    <h3>Registered Users</h3>
+    <p class="help-text">This is a list of all non-admin users in the database.</p>
     <div class="user-list">
         {% for user in users %}
-            <a href="{{ url_for('views.impersonate', user_id=user.id) }}" class="button">{{ user.username }}</a>
+            <span class="button-like">{{ user.username }}</span>
         {% endfor %}
     </div>
 </div>
 {% endif %}
 
-{% if branches %}
+{% if tenants %}
 <div class="card">
-    <h3>Load Existing Profile (All Branches)</h3>
-    <form id="load-profile-form">
-        <select name="branch_name" id="branch-select" required>
-            <option value="" disabled selected>-- Select a profile to edit --</option>
-            {% for branch in branches %}
-                <option value="{{ branch }}">{{ branch }}</option>
+    <h3>Manage Tenant Profiles</h3>
+    <form id="load-tenant-form">
+        <select name="tenant_name" id="tenant-select" required>
+            <option value="" disabled selected>-- Select a tenant profile to edit --</option>
+            {% for tenant in tenants %}
+                <option value="{{ tenant }}">{{ tenant }}</option>
             {% endfor %}
         </select>
-        <button type="submit" class="button primary">Edit Selected</button>
+        <button type="submit" class="button primary">Edit Selected Tenant</button>
     </form>
 </div>
 {% else %}
 <div class="card">
-    <p>No existing profiles found. You can create one using the button in the navigation bar.</p>
+    <p>No existing tenant profiles found in the configuration repository.</p>
 </div>
 {% endif %}
 
 <script>
-    document.getElementById('load-profile-form').addEventListener('submit', function(e) {
+    document.getElementById('load-tenant-form').addEventListener('submit', function(e) {
         e.preventDefault();
-        const select = document.getElementById('branch-select');
-        const branchName = select.value;
-        if (branchName) {
-            window.location.href = '/edit/' + branchName;
+        const select = document.getElementById('tenant-select');
+        const tenantName = select.value;
+        if (tenantName) {
+            // Correctly build the URL for the admin edit route
+            window.location.href = "{{ url_for('admin.index') }}edit/" + tenantName;
         }
     });
 </script>

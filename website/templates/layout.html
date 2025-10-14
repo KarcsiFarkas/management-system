@@ -17,9 +17,8 @@
 <body>
     <nav class="floating-nav">
         <div class="nav-left">
-            <a href="{{ url_for('views.index') }}" class="button">Admin</a>
+            <a href="{{ url_for('views.index') }}" class="button">Home</a>
             <a href="{{ url_for('views.discover') }}" class="button">Discover</a>
-            {% if current_user.is_authenticated %}<a href="{{ url_for('views.new_config') }}" class="button primary">Create New Profile</a>{% endif %}
         </div>
 
         <div class="nav-right">
@@ -30,14 +29,13 @@
             </div>
             <div class="user-actions">
                 {% if current_user.is_authenticated %}
-
-                    {% if session.get('previous_user_id') and current_user.is_admin %}
-                        <a href="{{ url_for('views.dashboard') }}" class="button primary">Exit Admin View</a>
+                    <div class="nav-username">{{ current_user.username }}</div>
+                    {% if current_user.is_admin %}
+                        <a href="{{ url_for('auth.logout') }}" class="button">Logout</a>
                     {% else %}
                         <a href="{{ url_for('views.dashboard') }}" class="button">My Dashboard</a>
                         <a href="{{ url_for('auth.logout') }}" class="button">Logout</a>
                     {% endif %}
-
                 {% else %}
                     <a href="{{ url_for('auth.login') }}" class="button">Login</a>
                     <a href="{{ url_for('auth.register') }}" class="button">Register</a>

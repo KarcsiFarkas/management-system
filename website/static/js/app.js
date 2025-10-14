@@ -23,32 +23,34 @@ document.addEventListener('DOMContentLoaded', function() {
     const savedTheme = localStorage.getItem('theme') || 'dark';
     applyTheme(savedTheme);
 
-    // --- 2. DASHBOARD-SPECIFIC LOGIC ---
-    const passwordModeSelect = document.getElementById('password_mode_select');
-    const customPasswordField = document.getElementById('custom_password_field');
+    // --- 2. UNIVERSAL COLLAPSE LOGIC FOR CARDS ---
+    document.body.addEventListener('click', function(event) {
+        const header = event.target.closest('.service-card-header');
+        if (header && !event.target.closest('a') && !event.target.closest('.remove-service-btn')) {
+            const card = header.closest('.service-options-card, .summary-card');
+            const toggleText = card.querySelector('.toggle-text');
+            card.classList.toggle('is-collapsed');
+            if (toggleText) {
+                toggleText.textContent = card.classList.contains('is-collapsed') ? 'Expand' : 'Collapse';
+            }
+        }
+    });
 
-    function toggleCustomPasswordField() {
-        if (!passwordModeSelect || !customPasswordField) return;
-        customPasswordField.style.display = (passwordModeSelect.value === 'custom') ? 'block' : 'none';
-    }
-
-    if (passwordModeSelect) {
-        passwordModeSelect.addEventListener('change', toggleCustomPasswordField);
-        toggleCustomPasswordField(); // Run on page load
-    }
 
     // --- 3. FORM-SPECIFIC LOGIC ---
     const form = document.getElementById('profile-form');
-    if (!form) return;
+    if (!form) return; // Exit if not on the form page
 
     // --- DOM ELEMENT SELECTION ---
-    const deploymentTypeRadios = form.querySelectorAll('input[name="deployment_type"]');
+    const deploymentTypeRadios = form.querySelectorAll('input[name="deployment_runtime"]');
     const serviceCheckboxes = form.querySelectorAll('.service-select-checkbox');
     const noServicesMessage = document.getElementById('no-services-message');
     const addAllButton = document.getElementById('add-all-services');
     const removeAllButton = document.getElementById('remove-all-services');
     const serviceSearch = document.getElementById('service-search');
     const serviceList = document.getElementById('service-list').querySelectorAll('li');
+    const passwordModeSelect = document.getElementById('password_mode_select');
+    const customPasswordField = document.getElementById('custom_password_field');
 
     // --- HELPER FUNCTIONS ---
 
@@ -72,20 +74,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function setCardCollapseState(cardElement, shouldBeCollapsed) {
-        const toggleButtonText = cardElement.querySelector('.toggle-text');
-        if (shouldBeCollapsed) {
-            cardElement.classList.add('is-collapsed');
-            if (toggleButtonText) toggleButtonText.textContent = 'Expand';
-        } else {
-            cardElement.classList.remove('is-collapsed');
-            if (toggleButtonText) toggleButtonText.textContent = 'Collapse';
-        }
-    }
-
     function validateServiceCard(cardElement) {
         if (!cardElement) return;
-        const requiredInputs = cardElement.querySelectorAll('input[data-is-required="true"]');
+        const requiredInputs = cardElement.querySelectorAll('input[required]');
         let isComplete = true;
 
         for (const input of requiredInputs) {
@@ -100,37 +91,34 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             cardElement.classList.remove('is-valid');
         }
-
-        if (!cardElement.hasAttribute('data-manual-toggle')) {
-            setCardCollapseState(cardElement, isComplete);
-        }
         updateServiceListHighlights();
     }
 
     function toggleDeploymentFields() {
-        const selectedType = form.querySelector('input[name="deployment_type"]:checked').value;
+        const selectedType = form.querySelector('input[name="deployment_runtime"]:checked').value;
         document.querySelectorAll('.deployment-fields').forEach(el => {
-            const inputs = el.querySelectorAll('input, select, textarea');
             const isVisibleTab = el.classList.contains(selectedType + '-fields');
-
             el.style.display = isVisibleTab ? 'block' : 'none';
 
-            inputs.forEach(input => {
-                const card = input.closest('.service-options-card');
-                const isCardVisible = !card || card.style.display === 'block';
+            // Only enable/disable fields if the parent service card is visible (selected)
+            const parentCard = el.closest('.service-options-card');
+            const isServiceSelected = parentCard && parentCard.style.display === 'block';
 
-                if (isVisibleTab && isCardVisible) {
-                    input.disabled = false;
-                    if (input.hasAttribute('data-is-required')) {
-                        input.required = true;
-                    }
+            el.querySelectorAll('input, select, textarea').forEach(input => {
+                if (isServiceSelected) {
+                    // Only enable/disable based on deployment type if service is selected
+                    input.disabled = !isVisibleTab;
                 } else {
+                    // Keep fields disabled if service is not selected
                     input.disabled = true;
-                    input.required = false;
                 }
             });
         });
-        document.querySelectorAll('.service-options-card[style*="display: block"]').forEach(validateServiceCard);
+        document.querySelectorAll('.service-options-card').forEach(card => {
+            if (card.style.display === 'block') {
+                validateServiceCard(card);
+            }
+        });
     }
 
     function updateSelectedServicesUI() {
@@ -143,9 +131,17 @@ document.addEventListener('DOMContentLoaded', function() {
             if (checkbox.checked) {
                 hasSelectedServices = true;
                 card.style.display = 'block';
+                // Enable required fields when card is shown
+                card.querySelectorAll('input[required]').forEach(input => {
+                    input.disabled = false;
+                });
+                validateServiceCard(card);
             } else {
                 card.style.display = 'none';
-                card.removeAttribute('data-manual-toggle');
+                // Disable required fields when card is hidden to prevent form validation issues
+                card.querySelectorAll('input[required]').forEach(input => {
+                    input.disabled = true;
+                });
             }
         });
 
@@ -153,19 +149,17 @@ document.addEventListener('DOMContentLoaded', function() {
             noServicesMessage.style.display = hasSelectedServices ? 'none' : 'block';
         }
         toggleDeploymentFields();
-        updateServiceListHighlights();
     }
+
+    function toggleCustomPasswordField() {
+        if (!passwordModeSelect || !customPasswordField) return;
+        customPasswordField.style.display = (passwordModeSelect.value === 'custom') ? 'block' : 'none';
+    }
+
 
     // --- EVENT LISTENERS ---
 
     form.addEventListener('click', function(event) {
-        const header = event.target.closest('.service-card-header');
-        if (header && !event.target.closest('a') && !event.target.closest('.remove-service-btn')) {
-            const card = header.closest('.service-options-card');
-            setCardCollapseState(card, !card.classList.contains('is-collapsed'));
-            card.setAttribute('data-manual-toggle', 'true');
-        }
-
         const removeBtn = event.target.closest('.remove-service-btn');
         if (removeBtn) {
             const serviceId = removeBtn.dataset.serviceId;
@@ -178,8 +172,9 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     form.addEventListener('input', function(event) {
-        const card = event.target.closest('.service-options-card');
-        validateServiceCard(card);
+        if (event.target.closest('.service-options-card')) {
+            validateServiceCard(event.target.closest('.service-options-card'));
+        }
     });
 
     deploymentTypeRadios.forEach(radio => radio.addEventListener('change', toggleDeploymentFields));
@@ -188,7 +183,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (addAllButton) {
         addAllButton.addEventListener('click', () => {
             serviceCheckboxes.forEach(checkbox => {
-                checkbox.checked = true;
+                if (checkbox.closest('li').style.display !== 'none') {
+                    checkbox.checked = true;
+                }
             });
             updateSelectedServicesUI();
         });
@@ -197,7 +194,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (removeAllButton) {
         removeAllButton.addEventListener('click', () => {
             serviceCheckboxes.forEach(checkbox => {
-                checkbox.checked = false;
+                if (checkbox.closest('li').style.display !== 'none') {
+                    checkbox.checked = false;
+                }
             });
             updateSelectedServicesUI();
         });
@@ -213,10 +212,31 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- INITIALIZATION ---
-    form.querySelectorAll('input[required]').forEach(input => {
-        input.setAttribute('data-is-required', 'true');
+    if (passwordModeSelect) {
+        passwordModeSelect.addEventListener('change', toggleCustomPasswordField);
+    }
+
+    // --- GLOBAL TOGGLE FUNCTIONALITY ---
+    // Add event listeners for all toggle buttons (works on dashboard and form pages)
+    document.addEventListener('click', function(event) {
+        const toggleButton = event.target.closest('.toggle-button');
+        if (toggleButton) {
+            const card = toggleButton.closest('.card');
+            if (card) {
+                const isCollapsed = card.classList.contains('is-collapsed');
+                const toggleText = toggleButton.querySelector('.toggle-text');
+
+                if (isCollapsed) {
+                    card.classList.remove('is-collapsed');
+                    if (toggleText) toggleText.textContent = 'Collapse';
+                } else {
+                    card.classList.add('is-collapsed');
+                    if (toggleText) toggleText.textContent = 'Expand';
+                }
+            }
+        }
     });
 
+    // --- INITIALIZATION ---
     updateSelectedServicesUI();
 });

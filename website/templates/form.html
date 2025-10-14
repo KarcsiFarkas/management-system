@@ -1,50 +1,81 @@
 {% extends "layout.html" %}
 {% block content %}
-<form method="POST" id="profile-form">
-    <div class="form-header">
-        <div class="card">
-            <h2>
-                {% if profile_data %}
-                    Editing '{{ profile_data.config_name }}'
-                {% else %}
-                    Create New Configuration
-                {% endif %}
-            </h2>
+<form action="{{ url_for('views.save_profile' if not tenant_name_override else 'admin.save_tenant_profile') }}" method="POST" id="profile-form">
+
+    {% if tenant_name_override %}
+        <input type="hidden" name="tenant_name_override" value="{{ tenant_name_override }}">
+    {% endif %}
+
+    <div class="card summary-card">
+        <div class="service-card-header">
+            <div class="service-card-title">
+                <h4>General Settings</h4>
+                <p class="help-text">Core settings for your deployment profile.</p>
+            </div>
+            <div class="service-card-controls">
+                <button type="button" class="toggle-button">
+                    <span class="toggle-text">Collapse</span>
+                    <span class="toggle-arrow">▼</span>
+                </button>
+            </div>
+        </div>
+        <div class="service-card-body">
             <div class="form-row">
                 <div>
-                    <label for="config_name">Configuration Name</label>
-                    {% if profile_data %}
-                    <input type="text" id="config_name" name="config_name" value="{{ profile_data.config_name }}" required disabled>
-                    {% else %}
-                    <input type="text" id="config_name" name="config_name" required>
-                    {% endif %}
-                    <p class="help-text">This name will be used for the profile branch.</p>
+                    <label for="tenant_domain">Tenant Domain</label>
+                    <input type="text" id="tenant_domain" name="tenant_domain" value="{{ profile_data.general.tenant_domain if profile_data and profile_data.general else current_user.global_domain }}">
                 </div>
                 <div>
                     <label>Deployment Type</label>
-                    <div class="radio-group">
-                        <input type="radio" id="type_docker" name="deployment_type" value="docker" {% if not profile_data or profile_data.deployment_type == 'docker' %}checked{% endif %}>
-                        <label for="type_docker">Docker Compose</label>
-
-                        <input type="radio" id="type_nix" name="deployment_type" value="nix" {% if profile_data and profile_data.deployment_type == 'nix' %}checked{% endif %}>
-                        <label for="type_nix">NixOS</label>
-                    </div>
+                    <ul class="selectable-list deployment-type-list">
+                        <li>
+                            <input type="radio" id="type_docker" name="deployment_runtime" value="docker" {% if not profile_data or (profile_data.general and profile_data.general.deployment_runtime == 'docker') %}checked{% endif %}>
+                            <label for="type_docker">Docker Compose</label>
+                        </li>
+                        <li>
+                            <input type="radio" id="type_nix" name="deployment_runtime" value="nix" {% if profile_data and profile_data.general and profile_data.general.deployment_runtime == 'nix' %}checked{% endif %}>
+                            <label for="type_nix">NixOS</label>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+             <div class="form-row">
+                <div>
+                    <label for="timezone">Timezone</label>
+                    <input type="text" id="timezone" name="timezone" value="{{ profile_data.general.timezone if profile_data and profile_data.general else current_user.global_timezone }}">
+                </div>
+                <div>
+                    <label for="universal_username">Universal Service Username</label>
+                    <input type="text" id="universal_username" name="universal_username" value="{{ profile_data.general.universal_username if profile_data and profile_data.general else current_user.username }}">
+                </div>
+            </div>
+             <div class="form-row">
+                 <div>
+                    <label for="password_mode_select">Password Mode</label>
+                    <select name="password_mode" id="password_mode_select">
+                        <option value="generate" {% if not profile_data or (profile_data.general and profile_data.general.password_mode != 'custom') %}selected{% endif %}>Generate unique passwords (Recommended)</option>
+                        <option value="custom" {% if profile_data and profile_data.general and profile_data.general.password_mode == 'custom' %}selected{% endif %}>Use a custom universal password</option>
+                    </select>
+                </div>
+                <div id="custom_password_field" style="display: {% if profile_data and profile_data.general and profile_data.general.password_mode == 'custom' %}block{% else %}none{% endif %};">
+                    <label for="universal_password_custom">Custom Universal Password</label>
+                    <input type="password" id="universal_password_custom" name="universal_password_custom" value="{{ profile_data.general.universal_password_custom if profile_data and profile_data.general else '' }}">
+                    <p class="help-text">Warning: Using the same password for multiple services is a security risk.</p>
                 </div>
             </div>
         </div>
     </div>
 
+
     <div class="form-columns">
         <div class="available-services-column card">
             <h2>Available Services</h2>
             <input type="text" id="service-search" placeholder="Search services...">
-
             <div class="service-actions">
                 <button type="button" id="add-all-services" class="button">Add All</button>
                 <button type="button" id="remove-all-services" class="button">Remove All</button>
             </div>
-
-            <ul id="service-list">
+            <ul id="service-list" class="selectable-list">
                 {% for service in config.services %}
                 <li data-service-id="{{ service.id }}">
                     <label for="select_{{ service.id }}">
@@ -52,7 +83,7 @@
                                name="service_{{ service.id }}"
                                class="service-select-checkbox"
                                data-controls-card="card-{{ service.id }}"
-                               {% if profile_data and service.id in profile_data.services %}checked{% endif %}>
+                               {% if profile_data and profile_data.services and service.id in profile_data.services %}checked{% endif %}>
                         <strong>{{ service.name }}</strong>
                         <a href="{{ service.url }}" class="external-link-icon" target="_blank" rel="noopener noreferrer" title="Visit official site">🔗</a>
                     </label>
@@ -60,12 +91,10 @@
                 {% endfor %}
             </ul>
         </div>
-
         <div class="selected-services-column">
             <h2>Selected Services</h2>
             <div id="selected-services-container">
                 <p id="no-services-message">Select services from the left to configure them here.</p>
-
                 {% for service in config.services %}
                 <div id="card-{{ service.id }}" class="service-options-card card" style="display: none;">
                     <div class="service-card-header">
@@ -84,21 +113,22 @@
                             <button type="button" class="remove-service-btn" data-service-id="{{ service.id }}" title="Remove this service">×</button>
                         </div>
                     </div>
-
                     <div class="service-card-body">
                         <div class="docker-fields deployment-fields">
                             {% for field in service.docker_fields %}
                                 <label for="{{ service.id }}_{{ field.name }}">{{ field.label }}</label>
-                                <input type="{{ field.type }}" name="{{ field.name }}" id="{{ service.id }}_{{ field.name }}" value="{{ profile_data[field.name] if profile_data and field.name in profile_data else field.default|default('') }}" {% if field.required %}required{% endif %}>
+                                {% set field_value = profile_data.services[service.id].options[field.name] if profile_data and profile_data.services and service.id in profile_data.services and field.name in profile_data.services[service.id].options else field.default %}
+                                <input type="{{ field.type }}" name="{{ field.name }}" id="{{ service.id }}_{{ field.name }}" value="{{ field_value | default('', true) }}" {% if field.required %}required{% endif %}>
                             {% endfor %}
                         </div>
                         <div class="nix-fields deployment-fields">
                             {% for field in service.nix_fields %}
                                 <label for="{{ service.id }}_{{ field.name }}">{{ field.label }}</label>
+                                {% set is_checked = profile_data.services[service.id].options[field.name] if profile_data and profile_data.services and service.id in profile_data.services and field.name in profile_data.services[service.id].options else field.default %}
                                 {% if field.type == 'checkbox' %}
-                                    <input type="checkbox" name="{{ field.name }}" id="{{ service.id }}_{{ field.name }}" {% if (profile_data and profile_data[field.name] == 'true') or (not profile_data and field.default) %}checked{% endif %}>
+                                    <input type="checkbox" name="{{ field.name }}" id="{{ service.id }}_{{ field.name }}" {% if is_checked %}checked{% endif %}>
                                 {% else %}
-                                    <input type="{{ field.type }}" name="{{ field.name }}" id="{{ service.id }}_{{ field.name }}" value="{{ profile_data[field.name] if profile_data and field.name in profile_data else field.default|default('') }}" {% if field.required %}required{% endif %}>
+                                    <input type="{{ field.type }}" name="{{ field.name }}" id="{{ service.id }}_{{ field.name }}" value="{{ is_checked | default('', true) }}" {% if field.required %}required{% endif %}>
                                 {% endif %}
                             {% endfor %}
                         </div>
@@ -113,11 +143,9 @@
     </div>
 
     <div class="form-footer">
-        {% if profile_data %}
-        <button type="submit" class="button primary">Update Profile</button>
-        {% else %}
-        <button type="submit" class="button primary">Generate Profile</button>
-        {% endif %}
+        <button type="submit" class="button primary">
+            {% if profile_data %}Update Profile{% else %}Generate Profile{% endif %}
+        </button>
     </div>
 </form>
 {% endblock %}

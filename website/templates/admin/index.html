@@ -1,0 +1,47 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="card">
+    <h2>Admin Panel: Link Tenants to Infrastructure</h2>
+    <p>This panel shows all user profiles (tenants) and allows you to assign them to a specific hardware configuration (infrastructure).</p>
+</div>
+
+<div class="card">
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="text-align: left; border-bottom: 2px solid #ddd;">
+                <th style="padding: 8px;">Tenant Profile</th>
+                <th style="padding: 8px;">Currently Linked To</th>
+                <th style="padding: 8px;">Assign New Target</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for tenant in tenants %}
+            <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 8px;">
+                    <strong>{{ tenant.name }}</strong>
+                    <br>
+                    <small style="color: #666;">Runtime: <code>{{ tenant.runtime }}</code></small>
+                </td>
+                <td style="padding: 8px;"><code>{{ tenant.target }}</code></td>
+                <td style="padding: 8px;">
+                    <form action="{{ url_for('admin.link_target') }}" method="post">
+                        <input type="hidden" name="tenant_name" value="{{ tenant.name }}">
+                        <select name="infra_target" required>
+                            <option value="" disabled selected>-- Select Infrastructure --</option>
+                            {% for infra in infrastructures %}
+                                <option value="{{ infra }}" {% if tenant.target == infra %}selected{% endif %}>{{ infra }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="button" style="margin-left: 10px;">Save</button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="3" style="padding: 8px; text-align: center;">No tenant profiles found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

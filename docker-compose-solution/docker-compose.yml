@@ -3,7 +3,6 @@ version: '3.8'
 networks:
   traefik_net:
     external: true
-
 volumes:
   # Shared media volumes for integration
   media_data:

@@ -18,6 +18,9 @@
     --error-text: #842029;
     --validation-incomplete-color: #a19dff;
     --validation-complete-color: #a7ffc4;
+    --summary-tag-bg: #e9ebee;
+    --summary-tag-text: #2c2c2e;
+    --summary-card-border-color: #c3c0ff;
 }
 
 /* --- Dark (Dracula) Theme --- */
@@ -40,6 +43,9 @@
     --error-text: #f8f8f2;
     --validation-incomplete-color: #ff5555;
     --validation-complete-color: #8be9fd;
+    --summary-tag-bg: #44475a;
+    --summary-tag-text: #f8f8f2;
+    --summary-card-border-color: #bd93f9;
 }
 
 body {
@@ -68,11 +74,20 @@ body {
 }
 .nav-left { display: flex; gap: 10px; }
 .nav-right { display: flex; align-items: center; gap: 20px; }
-.floating-nav .button {
+.floating-nav .button, .nav-username {
     box-shadow: 0 2px 5px var(--shadow-color);
     text-decoration: none;
 }
-.user-actions { display: flex; gap: 10px; }
+.user-actions { display: flex; align-items: center; gap: 10px; }
+.nav-username {
+    padding: 10px 20px;
+    background-color: var(--button-bg-color);
+    color: var(--button-text-color);
+    border-radius: 6px;
+    font-weight: bold;
+    text-align: center;
+}
+
 
 /* --- Theme Button Styles --- */
 .theme-buttons {
@@ -160,7 +175,6 @@ input[type="text"], input[type="password"], input[type="email"], input[type="num
 
 label { font-weight: bold; display: block; margin-top: 10px; }
 .help-text { font-size: 0.9em; color: #888; margin-top: -10px; margin-bottom: 15px; }
-.radio-group label { display: inline-block; margin-right: 15px; font-weight: normal; }
 
 .flash { padding: 15px; margin-bottom: 20px; border-radius: 6px; font-weight: bold; }
 .flash.success { background-color: var(--success-bg); color: var(--success-text); border: 1px solid var(--success-text); }
@@ -173,30 +187,25 @@ label { font-weight: bold; display: block; margin-top: 10px; }
 .auth-switch a { color: var(--primary-color); text-decoration: none; font-weight: bold; }
 
 .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.config-list { list-style: none; padding: 0; }
-.config-list li { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid var(--border-color); }
-.config-list li:last-child { border-bottom: none; }
 
 .form-header .form-row { display: flex; gap: 20px; }
 .form-header .form-row > div { flex: 1; }
 .form-columns { display: grid; grid-template-columns: 300px 1fr; gap: 20px; align-items: start; }
 .available-services-column { position: sticky; top: 90px; }
 
-#service-list {
+/* --- Selectable List Styles (for Services and Deployment Type) --- */
+.selectable-list {
     list-style: none;
     padding: 0;
     margin: 0;
-    max-height: 50vh;
-    overflow-y: auto;
 }
-#service-list .service-select-checkbox {
-    /* Visually hide checkbox but keep it accessible */
+.selectable-list input[type="checkbox"], .selectable-list input[type="radio"] {
     position: absolute;
     opacity: 0;
     width: 1px;
     height: 1px;
 }
-#service-list li label {
+.selectable-list li label {
     display: block;
     padding: 8px 12px;
     border-radius: 4px;
@@ -204,9 +213,16 @@ label { font-weight: bold; display: block; margin-top: 10px; }
     border-left: 4px solid transparent;
     transition: background-color 0.2s, border-left-color 0.2s;
     position: relative;
+    font-weight: bold;
 }
-#service-list li label:hover {
+.selectable-list li label:hover {
     background-color: var(--hover-bg-color);
+}
+
+/* Specific to service list on the left */
+#service-list {
+    max-height: 50vh;
+    overflow-y: auto;
 }
 #service-list li.is-selected label {
     background-color: var(--hover-bg-color);
@@ -216,10 +232,21 @@ label { font-weight: bold; display: block; margin-top: 10px; }
     border-left-color: var(--validation-complete-color);
 }
 
+/* Specific to deployment type selector */
+.deployment-type-list input[type="radio"]:checked + label {
+    background-color: var(--hover-bg-color);
+    border-left-color: var(--summary-card-border-color);
+}
+
 .selected-services-column #no-services-message { text-align: center; color: #888; padding: 40px; border: 2px dashed var(--border-color); border-radius: 8px; }
 
 .service-options-card { border-left: 4px solid var(--validation-incomplete-color); border-right: 4px solid var(--validation-incomplete-color); transition: border-left-color 0.3s ease, border-right-color 0.3s ease; }
 .service-options-card.is-valid { border-left-color: var(--validation-complete-color); border-right-color: var(--validation-complete-color); }
+
+.summary-card {
+    border-left: 4px solid var(--summary-card-border-color);
+    border-right: 4px solid var(--summary-card-border-color);
+}
 
 .service-card-header {
     display: flex;
@@ -273,10 +300,10 @@ label { font-weight: bold; display: block; margin-top: 10px; }
     border-color: var(--error-bg);
 }
 
-.service-card-body { max-height: 2000px; overflow: hidden; transition: max-height 0.4s ease-in-out, margin-top 0.4s ease-in-out; }
-.service-options-card.is-collapsed .service-card-body { max-height: 0; }
-.service-options-card.is-collapsed .service-card-header { margin-bottom: 0; }
-.service-options-card.is-collapsed .toggle-arrow { transform: rotate(-90deg); }
+.service-card-body { max-height: 2000px; overflow: hidden; transition: max-height 0.4s ease-in-out, margin-top 0.4s ease-in-out, padding 0.4s ease-in-out; }
+.is-collapsed .service-card-body { max-height: 0; padding-top: 0; padding-bottom: 0; margin-top: 0; }
+.is-collapsed .service-card-header { margin-bottom: 0; }
+.is-collapsed .toggle-arrow { transform: rotate(-90deg); }
 
 .form-footer { position: sticky; bottom: 20px; text-align: right; z-index: 100; background-color: transparent; border-top: none; box-shadow: none; padding: 0; margin-right: 20px; }
 .form-footer .button { box-shadow: 0 2px 5px var(--shadow-color); }
@@ -286,3 +313,45 @@ label { font-weight: bold; display: block; margin-top: 10px; }
 .external-link-icon:hover { opacity: 1; }
 
 .user-list { display: flex; flex-wrap: wrap; gap: 10px; }
+.button-like { display: inline-block; padding: 10px 20px; background-color: var(--button-bg-color); color: var(--button-text-color); border-radius: 6px; font-weight: bold; text-align: center; }
+
+/* --- Dashboard Summary Styles --- */
+.config-summary-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.config-summary-list li {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 15px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+.config-summary-list li:last-child {
+    border-bottom: none;
+}
+.config-summary-list strong {
+    font-size: 1.1em;
+}
+.config-summary-list code {
+    font-family: monospace;
+    background-color: var(--input-bg-color);
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+.service-tag-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+.service-tag {
+    background-color: var(--summary-tag-bg);
+    color: var(--summary-tag-text);
+    padding: 6px 12px;
+    border-radius: 15px;
+    font-size: 0.9em;
+    font-weight: 500;
+    border: 1px solid var(--border-color);
+}

@@ -1,156 +1,145 @@
 import os
 import git
 import json
+import yaml
 
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-PROFILES_REPO_PATH = os.path.join(PROJECT_ROOT, 'profiles')
-SERVICES_CONFIG_PATH = os.path.join(PROJECT_ROOT, 'website', 'services.json')
+DEFAULT_CONFIG_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'ms-config'))
+CONFIG_REPO_PATH = os.environ.get('CONFIG_REPO_PATH', DEFAULT_CONFIG_PATH)
+SERVICES_CONFIG_PATH = os.path.join(os.path.dirname(__file__), '..', 'services.json')
 
 
 def get_repo():
-    if not os.path.isdir(PROFILES_REPO_PATH):
+    """Initializes and returns the Repo object, ensuring it's on the main branch and up-to-date."""
+    if not os.path.isdir(CONFIG_REPO_PATH):
         raise FileNotFoundError(
-            f"Profiles directory not found at {PROFILES_REPO_PATH}. Please ensure the 'profiles' submodule is initialized.")
-    return git.Repo(PROFILES_REPO_PATH)
+            f"Configuration repository not found at: {CONFIG_REPO_PATH}. Set the CONFIG_REPO_PATH environment variable.")
+    if not os.path.isdir(os.path.join(CONFIG_REPO_PATH, '.git')):
+        raise git.InvalidGitRepositoryError(f"The path '{CONFIG_REPO_PATH}' is not a valid Git repository.")
+
+    repo = git.Repo(CONFIG_REPO_PATH)
+
+    if 'main' in repo.heads:
+        if repo.head.ref != repo.heads.main:
+            repo.heads.main.checkout()
+    else:
+        raise git.InvalidGitRepositoryError("Default branch 'main' not found in the configuration repository.")
+
+    if repo.remotes:
+        origin = repo.remotes.origin
+        origin.pull()
+
+    return repo
 
 
-def get_all_branches():
+def get_all_tenants():
+    """Returns a list of all tenant directories, ignoring files."""
+    tenants_dir = os.path.join(CONFIG_REPO_PATH, 'tenants')
+    if not os.path.isdir(tenants_dir):
+        os.makedirs(tenants_dir)
+        return []
+    # This ensures we only list directories, preventing errors with stray files.
+    return sorted([d for d in os.listdir(tenants_dir) if os.path.isdir(os.path.join(tenants_dir, d))])
+
+
+def load_tenant_profile(tenant_name):
+    """Loads and merges a tenant's general.conf.yml and selection.yml files."""
+    general_path = os.path.join(CONFIG_REPO_PATH, 'tenants', tenant_name, 'general.conf.yml')
+    selection_path = os.path.join(CONFIG_REPO_PATH, 'tenants', tenant_name, 'selection.yml')
+
+    if not os.path.isfile(general_path) and not os.path.isfile(selection_path):
+        return None, f"No configuration files found for tenant '{tenant_name}'."
+
+    profile_data = {'general': {}, 'services': {}}
+
+    try:
+        if os.path.isfile(general_path):
+            with open(general_path, 'r') as f:
+                profile_data['general'] = yaml.safe_load(f) or {}
+
+        if os.path.isfile(selection_path):
+            with open(selection_path, 'r') as f:
+                selection_content = yaml.safe_load(f) or {}
+                profile_data['services'] = selection_content.get('services', {})
+
+        profile_data['tenant_name'] = tenant_name
+        return profile_data, None
+    except Exception as e:
+        return None, f"Error reading configuration for tenant '{tenant_name}': {e}"
+
+
+def load_services_config():
+    """Loads the services configuration from services.json."""
+    with open(SERVICES_CONFIG_PATH, 'r') as f:
+        return json.load(f)
+
+
+def create_or_update_tenant_profile(form_data, user_object):
+    """Creates/updates a tenant's general.conf.yml and selection.yml and commits them."""
+    tenant_name = form_data.get('tenant_name_override', user_object.username)
+    if not tenant_name:
+        return "Invalid username for tenant operation."
+
     repo = get_repo()
-    return [head.name for head in repo.heads if head.name not in ['main', 'master']]
+    tenant_dir = os.path.join(CONFIG_REPO_PATH, 'tenants', tenant_name)
+    os.makedirs(tenant_dir, exist_ok=True)
 
+    general_path = os.path.join(tenant_dir, 'general.conf.yml')
+    selection_path = os.path.join(tenant_dir, 'selection.yml')
 
-def get_user_configs(username):
-    repo = get_repo()
-    prefix = f"{username}-"
-    user_branches = [head.name for head in repo.heads if head.name.startswith(prefix)]
-    return [branch.replace(prefix, '', 1) for branch in user_branches]
+    # --- 1. Prepare and write general.conf.yml ---
+    general_data = {
+        'tenant_domain': form_data.get('tenant_domain', user_object.global_domain),
+        'deployment_runtime': form_data.get('deployment_runtime', 'docker'),
+        'timezone': form_data.get('timezone', user_object.global_timezone),
+        'universal_username': form_data.get('universal_username', user_object.username),
+        'password_mode': form_data.get('password_mode', 'generate'),
+        'deployment_target': None
+    }
+    if general_data['password_mode'] == 'custom':
+        general_data['universal_password_custom'] = form_data.get('universal_password_custom', '')
 
+    if os.path.exists(general_path):
+        with open(general_path, 'r') as f:
+            existing_data = yaml.safe_load(f)
+            if existing_data and 'deployment_target' in existing_data:
+                general_data['deployment_target'] = existing_data['deployment_target']
 
-def load_profile(full_branch_name):
-    repo = get_repo()
-    if full_branch_name not in [head.name for head in repo.heads]:
-        return None, "Profile not found."
+    with open(general_path, 'w') as f:
+        yaml.dump(general_data, f, sort_keys=False, indent=2, default_flow_style=False)
 
-    main_branch = 'main' if 'main' in [h.name for h in repo.heads] else 'master'
-
-    if repo.is_dirty(untracked_files=True):
-        repo.git.stash('save', '--include-untracked')
-
-    repo.heads[full_branch_name].checkout()
-
-    config_data = {}
-    services_env_path = os.path.join(PROFILES_REPO_PATH, 'services.env')
-    config_env_path = os.path.join(PROFILES_REPO_PATH, 'config.env')
-
-    if not os.path.exists(services_env_path) or not os.path.exists(config_env_path):
-        repo.heads[main_branch].checkout()
-        return None, "Profile is incomplete."
-
-    config_data['services'] = {}
-    with open(services_env_path, 'r') as f:
-        for line in f:
-            if '=' in line and not line.strip().startswith('#'):
-                key, value = line.strip().split('=', 1)
-                config_data[key] = value.strip('"\'')
-                if key.startswith('SERVICE_') and key.endswith('_ENABLED') and value.strip('"\'').lower() == 'true':
-                    service_id = key.replace('SERVICE_', '').replace('_ENABLED', '').lower()
-                    config_data['services'][service_id] = 'on'
-
-    with open(config_env_path, 'r') as f:
-        for line in f:
-            if '=' in line and not line.strip().startswith('#'):
-                key, value = line.strip().split('=', 1)
-                config_data[key] = value.strip('"\'')
-
-    config_data['deployment_type'] = config_data.get('DEPLOYMENT_TYPE', 'docker')
-
-    repo.heads[main_branch].checkout()
-    return config_data, None
-
-
-def _write_profile_files(form_data, user, repo):
-    """A helper function to generate and write the config files."""
-    deployment_type = form_data.get('deployment_type')
-
+    # --- 2. Prepare and write selection.yml ---
     with open(SERVICES_CONFIG_PATH, 'r') as f:
         services_def = json.load(f)
 
-    # Generate services.env
-    services_content = [f"DEPLOYMENT_TYPE={deployment_type}"]
-    for service in services_def['services']:
-        service_id = service['id']
-        is_enabled = f'service_{service_id}' in form_data
-        services_content.append(f"SERVICE_{service_id.upper()}_ENABLED={'true' if is_enabled else 'false'}")
+    selection_data = {'services': {}}
+    deployment_type = general_data['deployment_runtime']
 
-    # Generate config.env
-    config_content = [
-        f"DOMAIN=\"{user.global_domain}\"",
-        f"TIMEZONE=\"{user.global_timezone}\"",
-        f"UNIVERSAL_USERNAME=\"{user.universal_username or user.username}\"",
-        f"PASSWORD_MODE=\"{user.password_mode}\""
-    ]
     for service in services_def['services']:
         service_id = service['id']
         if f'service_{service_id}' in form_data:
-            config_content.append(f"\n# --- {service['name']} Configuration ---")
-            service_fields = service.get(f'{deployment_type}_fields', [])
-            for field in service_fields:
-                value = form_data.get(field['name'], field.get('default', ''))
+            service_config = {'enabled': True, 'options': {}}
+            fields_key = f'{deployment_type}_fields'
+            for field in service.get(fields_key, []):
+                field_name = field['name']
                 if field.get('type') == 'checkbox':
-                    value = 'true' if field['name'] in form_data else 'false'
-                config_content.append(f"{field['name']}=\"{value}\"")
+                    service_config['options'][field_name] = field_name in form_data
+                elif field_name in form_data:
+                    service_config['options'][field_name] = form_data.get(field_name)
+            selection_data['services'][service_id] = service_config
 
-    # Write files
-    services_env_path = os.path.join(PROFILES_REPO_PATH, 'services.env')
-    config_env_path = os.path.join(PROFILES_REPO_PATH, 'config.env')
-    with open(services_env_path, 'w') as f:
-        f.write('\n'.join(services_content))
-    with open(config_env_path, 'w') as f:
-        f.write('\n'.join(config_content))
+    with open(selection_path, 'w') as f:
+        yaml.dump(selection_data, f, sort_keys=False, indent=2, default_flow_style=False)
 
-    repo.index.add([services_env_path, config_env_path])
+    # --- 3. Commit both files atomically ---
+    try:
+        repo.index.add([general_path, selection_path])
+        commit_message = f"feat({tenant_name}): Update tenant configuration via web UI"
+        if repo.is_dirty(index=True, working_tree=False, untracked_files=True):
+            repo.index.commit(commit_message)
+            if repo.remotes:
+                origin = repo.remotes.origin
+                origin.push()
+    except Exception as e:
+        return f"Error committing to Git repository: {e}"
 
-
-def create_profile(form_data, user):
-    """Creates a new profile branch."""
-    config_name = form_data.get('config_name')
-    if not config_name:
-        return "Configuration name is required."
-
-    full_branch_name = f"{user.username}-{config_name}"
-    if not all(c.isalnum() or c in '-_' for c in full_branch_name):
-        return "Names can only contain letters, numbers, hyphens, and underscores."
-
-    repo = get_repo()
-    main_branch = 'main' if 'main' in [h.name for h in repo.heads] else 'master'
-
-    if full_branch_name in [h.name for h in repo.heads]:
-        return f"A profile with the name '{config_name}' already exists."
-
-    repo.create_head(full_branch_name, main_branch)
-    repo.heads[full_branch_name].checkout()
-
-    _write_profile_files(form_data, user, repo)
-
-    repo.index.commit(f"Create profile: {full_branch_name}")
-    repo.heads[main_branch].checkout()
-    return None
-
-
-def update_profile(form_data, full_branch_name, user):
-    """Updates an existing profile branch."""
-    repo = get_repo()
-    main_branch = 'main' if 'main' in [h.name for h in repo.heads] else 'master'
-
-    if full_branch_name not in [h.name for h in repo.heads]:
-        return "Cannot update a profile that does not exist."
-
-    repo.heads[full_branch_name].checkout()
-
-    _write_profile_files(form_data, user, repo)
-
-    if repo.is_dirty(index=True, working_tree=False):
-        repo.index.commit(f"Update configuration for profile: {full_branch_name}")
-
-    repo.heads[main_branch].checkout()
     return None
