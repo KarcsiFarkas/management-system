@@ -1,0 +1,14 @@
+# PyCharm IDE
+.idea/
+.junie/
+# Environment files (secrets and user-specific configs)
+*.env
+.env.*
+
+# Nix build artifacts
+/nix-solution/result*
+
+# General
+*.log
+.DS_Store
+Thumbs.db
