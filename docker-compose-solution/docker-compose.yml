@@ -29,6 +29,7 @@ volumes:
   firefly_data:
   homepage_data:
   lldap_data:
+  authelia_data:
 
 services:
   # Reverse Proxy - Always deployed
@@ -118,6 +119,45 @@ services:
       - "traefik.http.routers.lldap.entrypoints=websecure"
       - "traefik.http.routers.lldap.tls.certresolver=letsencrypt"
       - "traefik.http.services.lldap.loadbalancer.server.port=17170"
+
+  # Authelia SSO Provider
+  authelia:
+    image: authelia/authelia:latest
+    container_name: authelia
+    profiles: ["authelia", "auth"]
+    environment:
+      - AUTHELIA_JWT_SECRET=${AUTHELIA_JWT_SECRET:-changeme-jwt-secret}
+      - AUTHELIA_SESSION_SECRET=${AUTHELIA_SESSION_SECRET:-changeme-session-secret}
+      - AUTHELIA_STORAGE_ENCRYPTION_KEY=${AUTHELIA_STORAGE_ENCRYPTION_KEY:-changeme-storage-key}
+      - AUTHELIA_AUTHENTICATION_BACKEND_LDAP_URL=ldap://lldap:3890
+      - AUTHELIA_AUTHENTICATION_BACKEND_LDAP_BASE_DN=${LDAP_BASE_DN:-dc=example,dc=local}
+      - AUTHELIA_AUTHENTICATION_BACKEND_LDAP_USERNAME_ATTRIBUTE=uid
+      - AUTHELIA_AUTHENTICATION_BACKEND_LDAP_ADDITIONAL_USERS_DN=ou=people
+      - AUTHELIA_AUTHENTICATION_BACKEND_LDAP_USERS_FILTER=(&({username_attribute}={input})(objectClass=person))
+      - AUTHELIA_AUTHENTICATION_BACKEND_LDAP_ADDITIONAL_GROUPS_DN=ou=groups
+      - AUTHELIA_AUTHENTICATION_BACKEND_LDAP_GROUPS_FILTER=(member={dn})
+      - AUTHELIA_AUTHENTICATION_BACKEND_LDAP_GROUP_NAME_ATTRIBUTE=cn
+      - AUTHELIA_AUTHENTICATION_BACKEND_LDAP_USER=cn=admin,ou=people,${LDAP_BASE_DN:-dc=example,dc=local}
+      - AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD=${LLDAP_ADMIN_PASSWORD:-changeme}
+      - AUTHELIA_DEFAULT_REDIRECTION_URL=https://${DOMAIN}
+      - AUTHELIA_SESSION_DOMAIN=${DOMAIN}
+    volumes:
+      - authelia_data:/config
+      - ./authelia/configuration.yml:/config/configuration.yml:ro
+    networks:
+      - traefik_net
+    restart: unless-stopped
+    depends_on:
+      - lldap
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.authelia.rule=Host(`auth.${DOMAIN}`)"
+      - "traefik.http.routers.authelia.entrypoints=websecure"
+      - "traefik.http.routers.authelia.tls.certresolver=letsencrypt"
+      - "traefik.http.services.authelia.loadbalancer.server.port=9091"
+      - "traefik.http.middlewares.authelia.forwardauth.address=http://authelia:9091/api/verify?rd=https://auth.${DOMAIN}"
+      - "traefik.http.middlewares.authelia.forwardauth.trustForwardHeader=true"
+      - "traefik.http.middlewares.authelia.forwardauth.authResponseHeaders=Remote-User,Remote-Groups,Remote-Name,Remote-Email"
 
   # File Sync and Storage Services
   nextcloud:

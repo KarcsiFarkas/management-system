@@ -38,6 +38,7 @@
         ./modules/services/firefly-iii.nix
         ./modules/services/homepage.nix
         ./modules/services/lldap.nix
+        ./modules/services/authelia.nix
       ];
     };
   };
