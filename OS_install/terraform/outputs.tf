@@ -31,7 +31,7 @@ output "ansible_host_vars" {
   description = "Variables for Ansible inventory"
   value = {
     ansible_host     = module.paas_vm.vm_ip
-    ansible_user     = "ubuntu"
+    ansible_user     = var.vm_username
     vm_id            = module.paas_vm.vm_id
     vm_name          = var.vm_name
   }

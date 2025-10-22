@@ -3,14 +3,13 @@ vms:
     hypervisor: proxmox
     boot_method: iso       # iso | image | pxe
     cpus: 4
-    memory_mb: 8192
+    memory_mb: 16384
     disks:
       - size_gb: 40
         storage: local-lvm
         type: scsi
     netifs:
       - bridge: vmbr0
-        vlan: 30
         model: virtio
     proxmox:
       node: fkarcsi
@@ -47,10 +46,12 @@ vms:
       - bridge: "eno1"
         vlan: null
         mac: "52:54:00:aa:bb:cc"
+
+
   - name: nixos-vm-01  # This is your new NixOS VM
     hypervisor: proxmox
     cpus: 4
-    memory_mb: 8192
+    memory_mb: 16384
     disks:
       - size_gb: 100
         storage: local-lvm # Your Proxmox storage

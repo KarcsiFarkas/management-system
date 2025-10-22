@@ -64,7 +64,7 @@ installs:
     network:
       hostname: nixos-vm-01
       dhcp: false
-      address_cidr: 192.168.1.21/24
+      address_cidr: 192.168.1.80/24
       gateway: 192.168.1.1
       dns: [ "1.1.1.1" ]
 
@@ -73,7 +73,7 @@ installs:
         sudo: true
         shell: /bin/bash
         ssh_authorized_keys:
-          - "ssh-ed25519 AAAAC3...[...your_ssh_public_key...]... root@Karcsi"
+          - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAFIEjyg0u7hl40wE27/BKSo+yZih5Aumax/PTgGVQ1t root@Karcsi"
 
     packages:
       - git

@@ -12,17 +12,22 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import dataclasses
+import contextlib
 import json
 import os
 import shutil
 import sys
-import textwrap
 from pathlib import Path
 from typing import Any, Literal, Optional, Sequence
 
 import yaml
-from pydantic import BaseModel, Field, HttpUrl, ValidationError, field_validator, model_validator
+from pydantic import BaseModel, Field, HttpUrl, ValidationError, model_validator
+
+# Linux/Unix-only: flock-based lock to prevent build dir races
+try:
+    import fcntl  # type: ignore
+except Exception:  # pragma: no cover
+    fcntl = None  # On non-Unix platforms you may need a different lock
 
 # Module-level debug flag (defaults from env, can be overridden by --debug)
 DEBUG = bool(int(os.environ.get("ORCH_DEBUG", "0") or "0"))
@@ -72,9 +77,9 @@ class OSInstallConfig(BaseModel):
     packages: list[str] = Field(default_factory=list)
     users: list[UserSpec]
     network: NetworkConfig
-    docker: bool = False                   # Enable Docker on Ubuntu
-    nix_services: list[str] = Field(default_factory=list)  # Enable named services on NixOS
-    partitioning: dict[str, Any] = Field(default_factory=dict)  # Optional custom layout
+    docker: bool = False
+    nix_services: list[str] = Field(default_factory=list)
+    partitioning: dict[str, Any] = Field(default_factory=dict)
 
 class VMSpec(BaseModel):
     name: str
@@ -84,14 +89,12 @@ class VMSpec(BaseModel):
     memory_mb: int = Field(4096, ge=512)
     disks: list[DiskSpec]
     netifs: list[NetIfSpec]
-    # Proxmox-specific
     proxmox: Optional[dict[str, Any]] = None
-    # Bare-metal specifics for PXE
-    baremetal: Optional[dict[str, Any]] = None  # e.g., {"mac": "...", "ipmi_host": "...", "ipmi_user": "...", "ipmi_pass": "..."}
+    baremetal: Optional[dict[str, Any]] = None
 
 class ImageCatalog(BaseModel):
     ubuntu_iso_url: HttpUrl
-    ubuntu_image_url: Optional[HttpUrl] = None  # cloud image optional
+    ubuntu_image_url: Optional[HttpUrl] = None
     nixos_iso_url: HttpUrl
 
 class Defaults(BaseModel):
@@ -150,9 +153,52 @@ async def run_cmd(*cmd: str, cwd: Optional[Path] = None, env: Optional[dict[str,
         raise ShellError(f"Command failed ({rc}): {' '.join(cmd)}")
 
 def ensure_empty_dir(path: Path) -> None:
+    """Ensure `path` is an empty directory (delete if present)."""
     if path.exists():
         shutil.rmtree(path)
     path.mkdir(parents=True, exist_ok=True)
+
+def ensure_clean_dir(path: Path, *, clean: bool = True) -> None:
+    """
+    Ensure `path` exists as a directory (idempotent & race-safe when used under a lock).
+    - If a non-directory exists at `path`, remove it.
+    - If a directory exists and `clean=True`, delete it recursively and recreate.
+    - If a directory exists and `clean=False`, keep it.
+    """
+    if path.exists():
+        # Treat symlink specially: if it points to dir, remove link; if file, unlink
+        if path.is_symlink():
+            path.unlink(missing_ok=True)
+            path.mkdir(parents=True, exist_ok=True)
+            return
+        if path.is_dir():
+            if clean:
+                shutil.rmtree(path, ignore_errors=True)
+                path.mkdir(parents=True, exist_ok=True)
+        else:
+            path.unlink(missing_ok=True)
+            path.mkdir(parents=True, exist_ok=True)
+    else:
+        path.mkdir(parents=True, exist_ok=True)
+
+@contextlib.asynccontextmanager
+async def filelock(lock_path: Path):
+    """
+    Simple flock-based async context manager (Unix).
+    Ensures only one worker manipulates a host build directory at a time.
+    """
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    if fcntl is None:
+        # Fallback: no-op lock if fcntl is unavailable (not recommended on multi-runner systems)
+        yield
+        return
+
+    with open(lock_path, "w") as fh:
+        fcntl.flock(fh, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(fh, fcntl.LOCK_UN)
 
 # ---------- Renderers ----------
 
@@ -211,6 +257,7 @@ def render_tf_module(workdir: Path, vm: VMSpec, install: OSInstallConfig, defaul
 
     # Determine username: Override > Config > Default
     vm_user = username_override or (install.users[0].username if install.users else "ubuntu")
+
     # Build tfvars matching root-level variable names
     tfvars = {
         "proxmox_endpoint": endpoint,
@@ -234,7 +281,7 @@ def render_tf_module(workdir: Path, vm: VMSpec, install: OSInstallConfig, defaul
     )
 
     if DEBUG:
-        print(f"📝 Generated terraform.tfvars.json with values:")
+        print("📝 Generated terraform.tfvars.json with values:")
         print(f"   - VM Name: {vm.name}")
         print(f"   - Node: {node}")
         print(f"   - IP: {ip}")
@@ -243,7 +290,7 @@ def render_tf_module(workdir: Path, vm: VMSpec, install: OSInstallConfig, defaul
 def render_ansible_inventory(workdir: Path, vm: VMSpec, install: OSInstallConfig, defaults: Defaults, username_override: Optional[str] = None) -> Path:
     """Creates inventory and group/host vars for Ansible."""
     ans_dir = workdir / "ansible"
-    ensure_empty_dir(ans_dir)
+    ensure_clean_dir(ans_dir, clean=True)
 
     # Minimal YAML inventory (INI also fine)
     inv = {
@@ -259,7 +306,6 @@ def render_ansible_inventory(workdir: Path, vm: VMSpec, install: OSInstallConfig
     ans_user = "root"  # Default for non-ubuntu
     if install.os == "ubuntu":
         ans_user = username_override or (install.users[0].username if install.users else "ubuntu")
-
 
     host_vars = {
         "ansible_user": ans_user,
@@ -298,13 +344,15 @@ def render_ansible_inventory(workdir: Path, vm: VMSpec, install: OSInstallConfig
 
 # ---------- Orchestration ----------
 
-async def terraform_apply(tf_dir: Path, max_retries: int = 2) -> None:
+async def terraform_apply(tf_dir: Path, max_retries: int = 2) -> dict[str, Any]:
     """
     Execute Terraform with proper error handling and retry logic.
 
     Args:
         tf_dir: Directory containing Terraform configuration
         max_retries: Number of retry attempts on failure
+    Returns:
+        A dictionary of Terraform outputs on success.
     """
     env_map = os.environ.copy()
     if DEBUG:
@@ -329,7 +377,22 @@ async def terraform_apply(tf_dir: Path, max_retries: int = 2) -> None:
             await run_cmd("terraform", "apply", "-auto-approve", "-input=false", "tfplan", cwd=tf_dir, env=env_map)
 
             print("✅ Terraform apply completed successfully!")
-            return
+
+            # Get outputs after apply
+            print("... retrieving outputs ...")
+            proc = await asyncio.create_subprocess_exec(
+                "terraform", "output", "-json",
+                cwd=tf_dir,
+                env=env_map,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await proc.communicate()
+            if proc.returncode != 0:
+                print(f"⚠️ Could not get Terraform outputs: {stderr.decode()}")
+                return {}
+
+            return json.loads(stdout.decode())
 
         except ShellError as e:
             error_msg = str(e)
@@ -345,23 +408,21 @@ async def terraform_apply(tf_dir: Path, max_retries: int = 2) -> None:
                 print(f"❌ Terraform error on attempt {attempt + 1}: {error_msg}")
 
             if attempt < max_retries - 1:
-                print(f"🔄 Retrying after cleanup...")
-
-                # Try to destroy partial infrastructure
+                print("🔄 Retrying after cleanup...")
                 try:
                     print("🧹 Cleaning up partial infrastructure...")
                     await run_cmd("terraform", "destroy", "-auto-approve", "-input=false", cwd=tf_dir, env=env_map)
                 except ShellError:
                     print("⚠️  Cleanup failed, but continuing with retry...")
 
-                # Wait before retry
-                wait_time = 15 * (attempt + 1)  # Exponential backoff
+                wait_time = 15 * (attempt + 1)
                 print(f"⏳ Waiting {wait_time} seconds before retry...")
                 await asyncio.sleep(wait_time)
             else:
                 print(f"❌ Terraform apply failed after {max_retries} attempts")
                 raise
 
+    return {}  # Should not be reached
 
 async def check_vm_health(vm_ip: str, vm_name: str, ssh_user: str, timeout: int = 300) -> bool:
     """
@@ -372,7 +433,6 @@ async def check_vm_health(vm_ip: str, vm_name: str, ssh_user: str, timeout: int 
         vm_name: Name of the VM
         ssh_user: The username to SSH with (e.g., 'ubuntu' or 'devops')
         timeout: Maximum time to wait in seconds
-...
     """
     print(f"🏥 Checking health of VM {vm_name} at {vm_ip} as user {ssh_user}...")
 
@@ -423,59 +483,6 @@ async def check_vm_health(vm_ip: str, vm_name: str, ssh_user: str, timeout: int 
     print(f"⚠️  VM health check timed out after {timeout} seconds")
     return False
 
-
-async def provision_host(root_build: Path, vm: VMSpec, install: OSInstallConfig, defaults: Defaults,
-                         targets: set[str], username_override: Optional[str] = None) -> tuple[str, Optional[Exception]]:
-    """Enhanced provision_host with health checks."""
-    host_dir = root_build / vm.name
-    host_dir.mkdir(parents=True, exist_ok=True)
-
-    try:
-        # Terraform (infra for Proxmox VM; PXE uses Ansible only)
-        if vm.hypervisor == "proxmox":
-            render_tf_module(host_dir, vm, install, defaults, username_override)
-            if "infra" in targets:
-                await terraform_apply(host_dir / "tf", max_retries=2)
-
-                # Get VM IP for health check
-                # ... inside 'if "infra" in targets:'
-                vm_ip = install.network.address_cidr.split("/")[0] if install.network.address_cidr else None
-                if vm_ip and vm_ip != "dhcp":
-                    # Get the SSH user for health check
-                    ssh_user = "root"  # Default
-                    if install.os == "ubuntu":
-                        # Use override, fallback to config, fallback to 'ubuntu'
-                        ssh_user = username_override or (install.users[0].username if install.users else "ubuntu")
-
-                    # Wait for VM to be fully ready
-                    await asyncio.sleep(30)  # Give time for boot
-                    healthy = await check_vm_health(vm_ip, vm.name, ssh_user, timeout=300)
-                    if not healthy:
-                        print(f"⚠️  Warning: VM {vm.name} may not be fully ready")
-
-        # Ansible (OS installation / post-config)
-        inv = render_ansible_inventory(host_dir, vm, install, defaults, username_override)
-        vars_file = host_dir / "ansible" / f"{vm.name}.vars.yaml"
-
-        if vm.hypervisor == "baremetal" or vm.boot_method == "pxe":
-            # Prepare PXE environment first
-            if "pxe" in targets:
-                await ansible_play(Path("ansible/playbooks/pxe_server.yml"), inv, vars_file)
-
-        # OS install
-        if "os" in targets:
-            if install.os == "ubuntu":
-                await ansible_play(Path("ansible/playbooks/ubuntu_install.yml"), inv, vars_file)
-            elif install.os == "nixos":
-                await ansible_play(Path("ansible/playbooks/nixos_install.yml"), inv, vars_file)
-
-        # Common post config (hardening, ntp, fqdn, etc.)
-        if "post" in targets:
-            await ansible_play(Path("ansible/playbooks/post_config_common.yml"), inv, vars_file)
-
-        return (vm.name, None)
-    except Exception as e:
-        return (vm.name, e)
 async def ansible_play(playbook: Path, inventory: Path, extra_vars_file: Path) -> None:
     args = [
         "ansible-playbook",
@@ -487,41 +494,84 @@ async def ansible_play(playbook: Path, inventory: Path, extra_vars_file: Path) -
         args.insert(1, "-vvv")
     await run_cmd(*args)
 
-# async def provision_host(root_build: Path, vm: VMSpec, install: OSInstallConfig, defaults: Defaults,
-#                          targets: set[str]) -> tuple[str, Optional[Exception]]:
-#     host_dir = root_build / vm.name
-#     host_dir.mkdir(parents=True, exist_ok=True)
-#
-#     try:
-#         # Terraform (infra for Proxmox VM; PXE uses Ansible only)
-#         if vm.hypervisor == "proxmox":
-#             render_tf_module(host_dir, vm, install, defaults)
-#             if "infra" in targets:
-#                 await terraform_apply(host_dir / "tf")
-#
-#         # Ansible (OS installation / post-config)
-#         inv = render_ansible_inventory(host_dir, vm, install, defaults)
-#         vars_file = host_dir / "ansible" / f"{vm.name}.vars.yaml"
-#
-#         if vm.hypervisor == "baremetal" or vm.boot_method == "pxe":
-#             # Prepare PXE environment first
-#             if "pxe" in targets:
-#                 await ansible_play(Path("ansible/playbooks/pxe_server.yml"), inv, vars_file)
-#
-#         # OS install
-#         if "os" in targets:
-#             if install.os == "ubuntu":
-#                 await ansible_play(Path("ansible/playbooks/ubuntu_install.yml"), inv, vars_file)
-#             elif install.os == "nixos":
-#                 await ansible_play(Path("ansible/playbooks/nixos_install.yml"), inv, vars_file)
-#
-#         # Common post config (hardening, ntp, fqdn, etc.)
-#         if "post" in targets:
-#             await ansible_play(Path("ansible/playbooks/post_config_common.yml"), inv, vars_file)
-#
-#         return (vm.name, None)
-#     except Exception as e:
-#         return (vm.name, e)
+async def provision_host(
+    root_build: Path,
+    vm: VMSpec,
+    install: OSInstallConfig,
+    defaults: Defaults,
+    targets: set[str],
+    username_override: Optional[str] = None
+) -> tuple[str, Optional[Exception]]:
+    """Enhanced provision_host with health checks and robust build dir creation."""
+    host_dir = root_build / vm.name
+    lock_path = host_dir.with_suffix(".lock")
+
+    # Lock to prevent concurrent manipulation of the same host dir
+    async with filelock(lock_path):
+        ensure_clean_dir(host_dir, clean=True)
+
+        try:
+            # Terraform (infra for Proxmox VM; PXE uses Ansible only)
+            if vm.hypervisor == "proxmox":
+                render_tf_module(host_dir, vm, install, defaults, username_override)
+
+                vm_ip_for_tasks = None
+                ssh_user = "root"
+                if install.os == "ubuntu":
+                    ssh_user = username_override or (install.users[0].username if install.users else "ubuntu")
+
+                if "infra" in targets:
+                    # Capture outputs
+                    tf_outputs = await terraform_apply(host_dir / "tf", max_retries=2)
+
+                    if install.network.dhcp:
+                        # Get IP from Terraform output for DHCP
+                        try:
+                            new_ip = tf_outputs.get("vm_ip", {}).get("value")
+                            if new_ip and new_ip != "dhcp-pending":
+                                vm_ip_for_tasks = new_ip
+                                print(f"✅ DHCP IP detected: {vm_ip_for_tasks}")
+                                # Update install config for Ansible
+                                install.network.address_cidr = vm_ip_for_tasks
+                            else:
+                                raise RuntimeError("DHCP IP not found in Terraform output. 'vm_ip' was missing or pending.")
+                        except Exception as e:
+                            print(f"⚠️ Could not get DHCP IP: {e}")
+                            return (vm.name, e)
+                    else:
+                        # Get IP from config for static
+                        vm_ip_for_tasks = (install.network.address_cidr or "").split("/")[0]
+
+                    if vm_ip_for_tasks:
+                        print("... giving VM 30s to boot before health check ...")
+                        await asyncio.sleep(30)
+                        healthy = await check_vm_health(vm_ip_for_tasks, vm.name, ssh_user, timeout=300)
+                        if not healthy:
+                            print(f"⚠️  Warning: VM {vm.name} may not be fully ready")
+
+            # Ansible (OS installation / post-config)
+            inv = render_ansible_inventory(host_dir, vm, install, defaults, username_override)
+            vars_file = host_dir / "ansible" / f"{vm.name}.vars.yaml"
+
+            if vm.hypervisor == "baremetal" or vm.boot_method == "pxe":
+                # Prepare PXE environment first
+                if "pxe" in targets:
+                    await ansible_play(Path("ansible/playbooks/pxe_server.yml"), inv, vars_file)
+
+            # OS install
+            if "os" in targets:
+                if install.os == "ubuntu":
+                    await ansible_play(Path("ansible/playbooks/ubuntu_install.yml"), inv, vars_file)
+                elif install.os == "nixos":
+                    await ansible_play(Path("ansible/playbooks/nixos_install.yml"), inv, vars_file)
+
+            # Common post config (hardening, ntp, fqdn, etc.)
+            if "post" in targets:
+                await ansible_play(Path("ansible/playbooks/post_config_common.yml"), inv, vars_file)
+
+            return (vm.name, None)
+        except Exception as e:
+            return (vm.name, e)
 
 def build_root() -> Path:
     root = Path("build")
@@ -542,7 +592,7 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
                    help="Pipeline stages to run")
     p.add_argument("--concurrency", type=int, default=4, help="Parallelism across hosts")
     p.add_argument("--plan-only", action="store_true", help="Render workdirs and terraform plan only")
-    p.add_argument("--username", help="Override the username for VM and SSH.")  # <-- ADD THIS
+    p.add_argument("--username", help="Override the username for VM and SSH.")
     p.add_argument("--debug", action="store_true", help="Enable verbose debug output and real-time command logs")
     return p.parse_args(argv)
 
@@ -582,7 +632,7 @@ async def main() -> None:
 
     root_build = build_root()
     targets = set(args.targets)
-    username_override = args.username or None  # <-- ADD THIS
+    username_override = args.username or None
 
     # Render and optionally plan/apply concurrently
     sem = asyncio.Semaphore(args.concurrency)
@@ -594,9 +644,7 @@ async def main() -> None:
             results.append((vm.name, RuntimeError("Missing install_config for host")))
             return
         async with sem:
-            # Pass username_override to provision_host
-            res = await provision_host(root_build, vm, install, config.defaults, targets,
-                                       username_override)  # <-- MODIFY THIS
+            res = await provision_host(root_build, vm, install, config.defaults, targets, username_override)
             results.append(res)
 
     await asyncio.gather(*(worker(vm) for vm in selected))

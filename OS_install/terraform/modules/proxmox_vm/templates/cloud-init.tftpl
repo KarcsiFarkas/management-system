@@ -1,0 +1,60 @@
+#cloud-config
+
+# Wait for network/DNS to be ready before proceeding
+# Ensure qemu-agent starts immediately
+runcmd:
+  # --- ADD THIS LINE FIRST ---
+  - [ sh, -c, "until nslookup security.ubuntu.com; do echo 'Waiting for network...' && sleep 2; done" ]
+
+  # --- Existing commands below ---
+  - systemctl daemon-reload
+  - systemctl enable qemu-guest-agent
+  - systemctl start qemu-guest-agent
+  - echo "QEMU Guest Agent started" > /tmp/qemu-agent-status
+
+hostname: ${vm_name}
+manage_etc_hosts: true
+
+users:
+  - name: ${vm_username}
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: [sudo, admin]
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ${ssh_key}
+
+# Network configuration
+network:
+  version: 2
+  ethernets:
+    net0: # Logical name
+      match:
+        name: en* # Match virtio names like enp1s0
+%{ if is_dhcp ~}
+      dhcp4: true
+%{ else ~}
+      dhcp4: false
+      addresses: [ "${vm_ip}" ]
+      gateway4: ${vm_gateway}
+      nameservers:
+        addresses: ${vm_dns_json}
+%{ endif ~}
+
+packages:
+  - qemu-guest-agent
+  - cloud-init
+
+package_update: true
+package_upgrade: false
+
+runcmd:
+  - systemctl daemon-reload
+  - systemctl enable qemu-guest-agent
+  - systemctl start qemu-guest-agent
+  - echo "QEMU Guest Agent started" > /tmp/qemu-agent-status
+
+datasource_list: [ NoCloud, ConfigDrive ]
+timezone: UTC
+ssh_pwauth: true
+disable_root: false
+final_message: "Cloud-init completed after $UPTIME seconds"

@@ -17,5 +17,5 @@ output "vm_password" {
 
 output "ssh_command" {
   description = "SSH command to connect to VM"
-  value       = "ssh ubuntu@${local.vm_ip_address}"
+  value       = "ssh ${var.vm_username}@${local.vm_ip_address}"
 }

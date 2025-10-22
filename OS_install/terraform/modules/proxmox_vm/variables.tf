@@ -87,5 +87,5 @@ variable "ssh_key" {
 variable "vm_username" {
   description = "The username for the default cloud-init user."
   type        = string
-  default     = "ubuntu"
+  default     = "test"
 }
