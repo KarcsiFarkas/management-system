@@ -245,21 +245,39 @@ def render_ansible_inventory(workdir: Path, vm: VMSpec, install: OSInstallConfig
         }
     }
 
+    # Determine SSH user: use cloud-init default for Ubuntu, root otherwise
+    ans_user = "ubuntu" if install.os == "ubuntu" else "root"
+
     host_vars = {
-        "ansible_user": next((u.username for u in install.users if u.sudo), "root"),
+        "ansible_user": ans_user,
         "network": install.network.model_dump(),
         "packages": install.packages,
         "docker_enabled": install.docker,
         "nix_services": install.nix_services,
         "partitioning": install.partitioning,
     }
+    # Inject common SSH args from defaults if provided (e.g., disable host key checking)
+    try:
+        ssh_args = (defaults.ansible_defaults or {}).get("ssh_common_args")
+        if ssh_args:
+            host_vars["ansible_ssh_common_args"] = ssh_args
+    except Exception:
+        pass
+
+    # Resolve ansible_host (strip CIDR if provided)
+    ansible_host = vm.name
+    if install.network and install.network.address_cidr:
+        try:
+            ansible_host = install.network.address_cidr.split("/", 1)[0]
+        except Exception:
+            ansible_host = install.network.address_cidr
 
     if vm.hypervisor == "baremetal":
-        inv["all"]["children"]["pxe"]["hosts"][vm.name] = {"ansible_host": install.network.address_cidr or vm.name}
+        inv["all"]["children"]["pxe"]["hosts"][vm.name] = {"ansible_host": ansible_host}
     elif install.os == "ubuntu":
-        inv["all"]["children"]["ubuntu"]["hosts"][vm.name] = {"ansible_host": install.network.address_cidr or vm.name}
+        inv["all"]["children"]["ubuntu"]["hosts"][vm.name] = {"ansible_host": ansible_host}
     else:
-        inv["all"]["children"]["nixos"]["hosts"][vm.name] = {"ansible_host": install.network.address_cidr or vm.name}
+        inv["all"]["children"]["nixos"]["hosts"][vm.name] = {"ansible_host": ansible_host}
 
     (ans_dir / "inventory.yaml").write_text(yaml.safe_dump(inv, sort_keys=False), encoding="utf-8")
     (ans_dir / f"{vm.name}.vars.yaml").write_text(yaml.safe_dump(host_vars, sort_keys=False), encoding="utf-8")
