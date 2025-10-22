@@ -116,22 +116,6 @@
       "notes": "No dedicated NixOS module. Can be run as a package with a custom systemd service."
     },
     {
-      "id": "vaultwarden",
-      "name": "Vaultwarden",
-      "url": "https://github.com/dani-garcia/vaultwarden",
-      "description": "Unofficial Bitwarden compatible server.",
-      "docker_fields": [
-        { "name": "VAULTWARDEN_ADMIN_TOKEN", "label": "Admin Token", "type": "password", "required": false, "placeholder": "Generate a secure token" },
-        { "name": "WEBSOCKET_ENABLED", "label": "Enable WebSocket", "type": "checkbox", "required": false, "default": true },
-        { "name": "SIGNUPS_ALLOWED", "label": "Allow Signups", "type": "checkbox", "required": false, "default": true }
-      ],
-      "nix_fields": [
-        { "name": "services.vaultwarden.config.domain", "label": "Domain", "type": "text", "required": false, "default": "vaultwarden.example.local" },
-        { "name": "services.vaultwarden.config.signupsAllowed", "label": "Allow Signups", "type": "checkbox", "required": false, "default": true },
-        { "name": "services.vaultwarden.config.rocketPort", "label": "Port", "type": "number", "required": false, "default": "8222" }
-      ]
-    },
-    {
       "id": "nextcloud",
       "name": "Nextcloud",
       "url": "https://nextcloud.com/",
@@ -265,20 +249,6 @@
       "nix_fields": [
         { "name": "services.radarr.openFirewall", "label": "Open Firewall Port", "type": "checkbox", "required": false, "default": true },
         { "name": "services.radarr.user", "label": "User", "type": "text", "required": false, "default": "radarr" }
-      ]
-    },
-    {
-      "id": "homepage",
-      "name": "Homepage",
-      "url": "https://gethomepage.dev/",
-      "description": "A customizable application dashboard.",
-      "docker_fields": [
-        { "name": "HOMEPAGE_PUID", "label": "User ID", "type": "number", "required": false, "default": "1000" },
-        { "name": "HOMEPAGE_PGID", "label": "Group ID", "type": "number", "required": false, "default": "1000" }
-      ],
-      "nix_fields": [
-        { "name": "services.homepage-dashboard.openFirewall", "label": "Open Firewall Port", "type": "checkbox", "required": false, "default": true },
-        { "name": "services.homepage-dashboard.listenPort", "label": "Listen Port", "type": "number", "required": false, "default": "3000" }
       ]
     },
     {

@@ -1,17 +1,46 @@
 terraform {
   required_providers {
     proxmox = {
-      source  = "Telmate/proxmox"
-      version = ">= 3.0.0"
+      source  = "bpg/proxmox"
+      version = ">= 0.60.0"
     }
   }
 }
 
 provider "proxmox" {
-  pm_api_url = var.pm_api_url
-  # Authentication via env:
-  #   PM_USER, PM_PASS or PM_API_TOKEN_ID, PM_API_TOKEN_SECRET
-  #   PM_TLS_INSECURE=1 (if using self-signed; prefer proper CA in production)
+  endpoint = var.proxmox_endpoint
+  insecure = var.proxmox_insecure
+  
+  
+  # SSH configuration for advanced operations (VM disk import, snippets, etc.)
+  ssh {
+    agent    = true
+    username = var.proxmox_ssh_username
+  }
 }
 
-variable "pm_api_url" { type = string, default = "https://proxmox.example:8006/api2/json" }
+# Proxmox connection variables
+# These can be sourced from environment variables:
+# - PROXMOX_VE_ENDPOINT
+# - PROXMOX_VE_API_TOKEN
+# - PROXMOX_VE_INSECURE
+# - PROXMOX_VE_SSH_USERNAME
+
+variable "proxmox_endpoint" {
+  type        = string
+  description = "Proxmox API endpoint URL"
+  default     = ""  # Source from PROXMOX_VE_ENDPOINT env var
+}
+
+
+variable "proxmox_insecure" {
+  type        = bool
+  description = "Skip TLS verification (not recommended for production)"
+  default     = true
+}
+
+variable "proxmox_ssh_username" {
+  type        = string
+  description = "SSH username for Proxmox node access"
+  default     = "root"
+}

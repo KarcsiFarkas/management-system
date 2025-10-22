@@ -8,7 +8,7 @@ installs:
       - username: devops
         sudo: true
         ssh_authorized_keys:
-          - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMYoursamplekey user@laptop"
+          - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOSvN8jDh3isRMmBRk4cDOsQ3pUfF9CR7PLV/XUvRO73 paas-test-runner"
     network:
       hostname: web-01
       domain: lab.local
@@ -18,7 +18,6 @@ installs:
       dns: ["1.1.1.1", "9.9.9.9"]
       interfaces:
         - bridge: vmbr0
-          vlan: 30
           model: virtio
 
   ci-runner-01:
@@ -29,13 +28,12 @@ installs:
       - username: runner
         sudo: true
         ssh_authorized_keys:
-          - "ssh-ed25519 AAAAC3Nza... runner@host"
+          - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOSvN8jDh3isRMmBRk4cDOsQ3pUfF9CR7PLV/XUvRO73 paas-test-runner"
     network:
       hostname: ci-runner-01
       dhcp: true
       interfaces:
         - bridge: vmbr0
-          vlan: 20
 
   baremetal-01:
     os: nixos
@@ -46,7 +44,7 @@ installs:
       - username: ops
         sudo: true
         ssh_authorized_keys:
-          - "ssh-ed25519 AAAAC3Nza... ops@host"
+          - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOSvN8jDh3isRMmBRk4cDOsQ3pUfF9CR7PLV/XUvRO73 paas-test-runner"
     network:
       hostname: baremetal-01
       domain: lab.local

@@ -6,7 +6,7 @@ image_catalog:
   nixos_iso_url: "https://channels.nixos.org/nixos-24.05/latest-nixos-minimal-x86_64-linux.iso"
 
 proxmox_provider:
-  pm_api_url: "https://proxmox.example:8006/api2/json"
+  pm_api_url: "https://192.168.1.111:8006/api2/json"
   # Auth via env:
   #   PM_API_TOKEN_ID=terraform@pve!iac  PM_API_TOKEN_SECRET=...
 

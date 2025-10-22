@@ -13,7 +13,7 @@ vms:
         vlan: 30
         model: virtio
     proxmox:
-      node: pve1
+      node: fkarcsi
       storage: local-lvm
       iso_storage: local
 
@@ -31,7 +31,7 @@ vms:
         vlan: 20
         model: virtio
     proxmox:
-      node: pve2
+      node: fkarcsi
       storage: local-lvm
 
   - name: baremetal-01

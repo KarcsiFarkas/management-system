@@ -24,6 +24,9 @@ from typing import Any, Literal, Optional, Sequence
 import yaml
 from pydantic import BaseModel, Field, HttpUrl, ValidationError, field_validator, model_validator
 
+# Module-level debug flag (defaults from env, can be overridden by --debug)
+DEBUG = bool(int(os.environ.get("ORCH_DEBUG", "0") or "0"))
+
 # ---------- Models (Pydantic) ----------
 
 BootMethod = Literal["iso", "image", "pxe"]
@@ -132,6 +135,9 @@ class ShellError(RuntimeError):
     pass
 
 async def run_cmd(*cmd: str, cwd: Optional[Path] = None, env: Optional[dict[str, str]] = None) -> None:
+    if DEBUG:
+        here = str(cwd) if cwd else os.getcwd()
+        print(f"🐞 [{here}] >> {' '.join(cmd)}")
     proc = await asyncio.create_subprocess_exec(
         *cmd, cwd=str(cwd) if cwd else None, env=env or os.environ.copy(),
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT
@@ -151,13 +157,14 @@ def ensure_empty_dir(path: Path) -> None:
 # ---------- Renderers ----------
 
 def render_tf_module(workdir: Path, vm: VMSpec, install: OSInstallConfig, defaults: Defaults) -> None:
-    """Materialize Terraform files and tfvars for a single host."""
+    """Materialize Terraform files and tfvars for a single host using bpg/proxmox layout."""
     mod_src = Path("terraform/modules/proxmox_vm")
     env_src = Path("terraform/envs/default")
+    root_tf_src = Path("terraform")
     tf_dir = workdir / "tf"
     ensure_empty_dir(tf_dir)
 
-    # Copy static scaffolding
+    # Copy static scaffolding (module and env provider)
     for src in (mod_src, env_src):
         if not src.exists():
             raise FileNotFoundError(f"Missing Terraform path: {src}")
@@ -165,67 +172,61 @@ def render_tf_module(workdir: Path, vm: VMSpec, install: OSInstallConfig, defaul
     for f in env_src.iterdir():
         shutil.copy(f, tf_dir / f.name)
 
-    # Root main.tf to call module
-    main_tf = textwrap.dedent(
-        """
-        terraform {
-          required_version = ">= 1.5.0"
-        }
+    # Copy root Terraform entrypoint (main.tf and variables.tf)
+    for fname in ("main.tf", "variables.tf"):
+        src_file = root_tf_src / fname
+        if not src_file.exists():
+            raise FileNotFoundError(f"Missing Terraform root file: {src_file}")
+        shutil.copy(src_file, tf_dir / fname)
 
-        module "vm" {
-          source      = "./modules/proxmox_vm"
-          name        = var.name
-          cpus        = var.cpus
-          memory_mb   = var.memory_mb
-          disks       = var.disks
-          netifs      = var.netifs
-          boot_method = var.boot_method
-          proxmox     = var.proxmox
-          image_urls  = var.image_urls
-          install     = var.install
-        }
+    # Build terraform.tfvars.json according to the new variables
+    # Map from vm_specs/install_config
+    node = (vm.proxmox or {}).get("node", "pve")
+    storage = (vm.proxmox or {}).get("storage", "local-lvm")
+    bridge = vm.netifs[0].bridge if vm.netifs else "vmbr0"
+    vlan = vm.netifs[0].vlan if vm.netifs else None
+    disk_size = vm.disks[0].size_gb if vm.disks else 20
 
-        output "vm_id" { value = module.vm.vm_id }
-        output "ip_hint" { value = module.vm.ip_hint }
-        """
-    )
-    (tf_dir / "main.tf").write_text(main_tf, encoding="utf-8")
+    # Network mapping (support dhcp)
+    ip = install.network.address_cidr if not install.network.dhcp else "dhcp"
+    gateway = install.network.gateway if not install.network.dhcp else ""
+    dns = install.network.dns or ["1.1.1.1", "9.9.9.9"]
 
-    # Variables and tfvars.json (simple explicit variables for module call)
-    variables_tf = textwrap.dedent(
-        """
-        variable "name"        { type = string }
-        variable "cpus"        { type = number }
-        variable "memory_mb"   { type = number }
-        variable "disks"       { type = any }
-        variable "netifs"      { type = any }
-        variable "boot_method" { type = string }
-        variable "proxmox"     { type = any }
-        variable "image_urls"  { type = any }
-        variable "install"     { type = any }
-        """
-    )
-    (tf_dir / "variables.tf").write_text(variables_tf, encoding="utf-8")
+    # SSH key: first sudo user's first key, else empty
+    ssh_key = ""
+    for u in install.users:
+        if u.ssh_authorized_keys:
+            ssh_key = u.ssh_authorized_keys[0]
+            break
+
+    # Proxmox provider endpoint (from config or environment)
+    endpoint = ""
+    if defaults.proxmox_provider:
+        try:
+            endpoint = str(defaults.proxmox_provider.get("pm_api_url") or "").strip()
+        except Exception:
+            endpoint = ""
+    if not endpoint:
+        endpoint = os.environ.get("PROXMOX_VE_ENDPOINT", "").strip()
+    if not endpoint:
+        raise RuntimeError("Missing Proxmox endpoint. Set defaults.proxmox_provider.pm_api_url in configs/defaults.yaml or PROXMOX_VE_ENDPOINT env var.")
 
     tfvars = {
-        "name": vm.name,
-        "cpus": vm.cpus,
-        "memory_mb": vm.memory_mb,
-        "disks": [d.model_dump() for d in vm.disks],
-        "netifs": [n.model_dump() for n in vm.netifs],
-        "boot_method": vm.boot_method,
-        "proxmox": vm.proxmox or {},
-        "image_urls": {
-            "ubuntu_iso_url": defaults.image_catalog.ubuntu_iso_url,
-            "ubuntu_image_url": defaults.image_catalog.ubuntu_image_url,
-            "nixos_iso_url": defaults.image_catalog.nixos_iso_url,
-        },
-        "install": {
-            "os": install.os,
-            "version": install.version,
-            "network": install.network.model_dump(),
-        },
+        "proxmox_endpoint": endpoint,
+        "vm_name": vm.name,
+        "vm_node": node,
+        "vm_storage": storage,
+        "vm_bridge": bridge,
+        "vm_vlan": vlan,
+        "vm_cpus": vm.cpus,
+        "vm_memory": vm.memory_mb,
+        "vm_disk_size": disk_size,
+        "vm_ip": ip,
+        "vm_gateway": gateway,
+        "vm_dns": dns,
+        "ssh_key": ssh_key,
     }
+
     (tf_dir / "terraform.tfvars.json").write_text(json.dumps(tfvars, indent=2), encoding="utf-8")
 
 def render_ansible_inventory(workdir: Path, vm: VMSpec, install: OSInstallConfig, defaults: Defaults) -> Path:
@@ -267,18 +268,26 @@ def render_ansible_inventory(workdir: Path, vm: VMSpec, install: OSInstallConfig
 # ---------- Orchestration ----------
 
 async def terraform_apply(tf_dir: Path) -> None:
-    await run_cmd("terraform", "init", "-upgrade", cwd=tf_dir)
-    await run_cmd("terraform", "validate", cwd=tf_dir)
-    await run_cmd("terraform", "plan", "-input=false", cwd=tf_dir)
-    await run_cmd("terraform", "apply", "-auto-approve", "-input=false", cwd=tf_dir)
+    env_map = None
+    if DEBUG:
+        env_map = os.environ.copy()
+        # Terraform logging levels: TRACE, DEBUG, INFO, WARN, ERROR
+        env_map["TF_LOG"] = env_map.get("TF_LOG", "INFO")
+    await run_cmd("terraform", "init", "-upgrade", cwd=tf_dir, env=env_map)
+    await run_cmd("terraform", "validate", cwd=tf_dir, env=env_map)
+    await run_cmd("terraform", "plan", "-input=false", cwd=tf_dir, env=env_map)
+    await run_cmd("terraform", "apply", "-auto-approve", "-input=false", cwd=tf_dir, env=env_map)
 
 async def ansible_play(playbook: Path, inventory: Path, extra_vars_file: Path) -> None:
-    await run_cmd(
+    args = [
         "ansible-playbook",
         "-i", str(inventory),
         str(playbook),
         "--extra-vars", f"@{extra_vars_file}",
-    )
+    ]
+    if DEBUG:
+        args.insert(1, "-vvv")
+    await run_cmd(*args)
 
 async def provision_host(root_build: Path, vm: VMSpec, install: OSInstallConfig, defaults: Defaults,
                          targets: set[str]) -> tuple[str, Optional[Exception]]:
@@ -335,6 +344,7 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
                    help="Pipeline stages to run")
     p.add_argument("--concurrency", type=int, default=4, help="Parallelism across hosts")
     p.add_argument("--plan-only", action="store_true", help="Render workdirs and terraform plan only")
+    p.add_argument("--debug", action="store_true", help="Enable verbose debug output and real-time command logs")
     return p.parse_args(argv)
 
 def load_config(defaults_path: str | Path, vm_specs_path: str | Path, install_config_path: str | Path) -> RootConfig:
@@ -357,6 +367,11 @@ def load_config(defaults_path: str | Path, vm_specs_path: str | Path, install_co
 
 async def main() -> None:
     args = parse_args()
+    # Override module-level DEBUG if flag is set
+    global DEBUG
+    if args.debug:
+        DEBUG = True
+        print("🐞 Debug mode enabled: streaming command logs; Terraform TF_LOG=INFO; Ansible -vvv")
     config = load_config(args.defaults, args.vm_specs, args.install_config)
 
     selected: list[VMSpec] = [
