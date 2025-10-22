@@ -102,6 +102,11 @@ resource "proxmox_virtual_environment_vm" "ubuntu_server" {
     type         = "nocloud"
     datastore_id = var.vm_storage
     interface    = "ide2"
+   user_account {
+      username = var.vm_username
+      password = ""
+      keys     = [var.ssh_key]
+    }
 
     # This tells Proxmox to use your custom template.
     user_data_file_id = proxmox_virtual_environment_file.cloud_init_user_data.id

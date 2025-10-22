@@ -15,7 +15,9 @@ import asyncio
 import contextlib
 import json
 import os
+import secrets
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Literal, Optional, Sequence
@@ -23,16 +25,18 @@ from typing import Any, Literal, Optional, Sequence
 import yaml
 from pydantic import BaseModel, Field, HttpUrl, ValidationError, model_validator
 
-# Linux/Unix-only: flock-based lock to prevent build dir races
+# --- Global Constants ---
+PROJECT_ROOT = Path(__file__).resolve().parents[2]  # thesis-szakdoga/
+TENANTS_DIR = PROJECT_ROOT / "ms-config" / "tenants"
+
 try:
     import fcntl  # type: ignore
-except Exception:  # pragma: no cover
-    fcntl = None  # On non-Unix platforms you may need a different lock
+except Exception:
+    fcntl = None
 
-# Module-level debug flag (defaults from env, can be overridden by --debug)
 DEBUG = bool(int(os.environ.get("ORCH_DEBUG", "0") or "0"))
 
-# ---------- Models (Pydantic) ----------
+# ---------- Models ----------
 
 BootMethod = Literal["iso", "image", "pxe"]
 OSType = Literal["ubuntu", "nixos"]
@@ -40,11 +44,11 @@ Hypervisor = Literal["proxmox", "baremetal"]
 
 class DiskSpec(BaseModel):
     size_gb: int = Field(50, ge=8)
-    storage: str = Field(..., description="Proxmox storage name (e.g., local-lvm)")
+    storage: str
     type: Literal["scsi", "virtio", "sata"] = "scsi"
 
 class NetIfSpec(BaseModel):
-    bridge: str = Field(..., description="Proxmox bridge (vmbr0, etc.) or interface for PXE")
+    bridge: str
     vlan: Optional[int] = None
     mac: Optional[str] = None
     model: Literal["virtio", "e1000", "rtl8139"] = "virtio"
@@ -83,6 +87,7 @@ class OSInstallConfig(BaseModel):
 
 class VMSpec(BaseModel):
     name: str
+    tenant: str = "default"
     hypervisor: Hypervisor = "proxmox"
     boot_method: BootMethod = "iso"
     cpus: int = Field(2, ge=1)
@@ -111,8 +116,45 @@ class Defaults(BaseModel):
 class RootConfig(BaseModel):
     defaults: Defaults
     vms: list[VMSpec]
-    installs: dict[str, OSInstallConfig]  # keyed by VMSpec.name
+    installs: dict[str, OSInstallConfig]
 
+# ---------- Tenant Key & Password Management -
+
+# ---------- Tenant Key Management ----------
+
+def ensure_ssh_keypair(tenant_name: str) -> Path:
+    """Ensures that an ed25519 SSH keypair exists for the given tenant."""
+    tenant_dir = TENANTS_DIR / tenant_name
+    tenant_dir.mkdir(parents=True, exist_ok=True)
+    priv_key = tenant_dir / "id_ed25519"
+    pub_key = tenant_dir / "id_ed25519.pub"
+
+    if not pub_key.exists() or not priv_key.exists():
+        print(f"🔐 Generating new SSH keypair for tenant '{tenant_name}'...")
+        subprocess.run(
+            ["ssh-keygen", "-t", "ed25519", "-N", "", "-f", str(priv_key)],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    else:
+        print(f"🔑 Reusing existing SSH keypair for tenant '{tenant_name}'")
+
+    return pub_key
+
+def ensure_tenant_password(tenant_name: str) -> str:
+    """Generate or reuse a persistent password for a tenant."""
+    tenant_dir = TENANTS_DIR / tenant_name
+    tenant_dir.mkdir(parents=True, exist_ok=True)
+    pw_file = tenant_dir / "password.txt"
+
+    if pw_file.exists():
+        return pw_file.read_text().strip()
+
+    password = secrets.token_urlsafe(12)
+    pw_file.write_text(password)
+    print(f"🔐 Generated tenant password for '{tenant_name}': {password}")
+    return password
 # ---------- YAML IO & Merge ----------
 
 def load_yaml(path_or_dash: str | Path) -> dict[str, Any]:
@@ -134,8 +176,7 @@ def deep_merge(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
 
 # ---------- Utilities ----------
 
-class ShellError(RuntimeError):
-    pass
+class ShellError(RuntimeError): pass
 
 async def run_cmd(*cmd: str, cwd: Optional[Path] = None, env: Optional[dict[str, str]] = None) -> None:
     if DEBUG:
@@ -153,24 +194,12 @@ async def run_cmd(*cmd: str, cwd: Optional[Path] = None, env: Optional[dict[str,
         raise ShellError(f"Command failed ({rc}): {' '.join(cmd)}")
 
 def ensure_empty_dir(path: Path) -> None:
-    """Ensure `path` is an empty directory (delete if present)."""
     if path.exists():
         shutil.rmtree(path)
     path.mkdir(parents=True, exist_ok=True)
 
 def ensure_clean_dir(path: Path, *, clean: bool = True) -> None:
-    """
-    Ensure `path` exists as a directory (idempotent & race-safe when used under a lock).
-    - If a non-directory exists at `path`, remove it.
-    - If a directory exists and `clean=True`, delete it recursively and recreate.
-    - If a directory exists and `clean=False`, keep it.
-    """
     if path.exists():
-        # Treat symlink specially: if it points to dir, remove link; if file, unlink
-        if path.is_symlink():
-            path.unlink(missing_ok=True)
-            path.mkdir(parents=True, exist_ok=True)
-            return
         if path.is_dir():
             if clean:
                 shutil.rmtree(path, ignore_errors=True)
@@ -203,62 +232,40 @@ async def filelock(lock_path: Path):
 # ---------- Renderers ----------
 
 def render_tf_module(workdir: Path, vm: VMSpec, install: OSInstallConfig, defaults: Defaults, username_override: Optional[str] = None) -> None:
-    """Materialize Terraform files and tfvars for a single host."""
+    """Render Terraform files + tfvars with tenant SSH key and fallback password."""
     mod_src = Path("terraform/modules/proxmox_vm")
     root_tf_src = Path("terraform")
     tf_dir = workdir / "tf"
     ensure_empty_dir(tf_dir)
 
-    # Copy module directory
-    if not mod_src.exists():
-        raise FileNotFoundError(f"Missing Terraform module path: {mod_src}")
+    # Copy module directory and root files
     shutil.copytree(mod_src, tf_dir / "modules" / "proxmox_vm")
-
-    # Copy root-level Terraform files
     for fname in ("main.tf", "variables.tf", "provider.tf", "outputs.tf"):
-        src_file = root_tf_src / fname
-        if not src_file.exists():
-            raise FileNotFoundError(f"Missing Terraform root file: {src_file}")
-        shutil.copy(src_file, tf_dir / fname)
+        shutil.copy(root_tf_src / fname, tf_dir / fname)
 
-    # Build terraform.tfvars.json according to root variables
     node = (vm.proxmox or {}).get("node", "pve")
     storage = (vm.proxmox or {}).get("storage", "local-lvm")
     bridge = vm.netifs[0].bridge if vm.netifs else "vmbr0"
     vlan = vm.netifs[0].vlan if vm.netifs else None
     disk_size = vm.disks[0].size_gb if vm.disks else 20
 
-    # Network mapping (support dhcp)
     ip = install.network.address_cidr if not install.network.dhcp else "dhcp"
     gateway = install.network.gateway if not install.network.dhcp else ""
     dns = install.network.dns or ["1.1.1.1", "9.9.9.9"]
 
-    # SSH key: first sudo user's first key, else empty
-    ssh_key = ""
-    for u in install.users:
-        if u.ssh_authorized_keys:
-            ssh_key = u.ssh_authorized_keys[0]
-            break
+    tenant_name = getattr(vm, "tenant", "default")
+    pub_key_path = ensure_ssh_keypair(tenant_name)
+    ssh_key = pub_key_path.read_text().strip()
+    tenant_password = ensure_tenant_password(tenant_name)
 
-    # Proxmox provider endpoint (from config or environment)
-    endpoint = ""
-    if defaults.proxmox_provider:
-        try:
-            endpoint = str(defaults.proxmox_provider.get("pm_api_url") or "").strip()
-        except Exception:
-            endpoint = ""
+    endpoint = str(defaults.proxmox_provider.get("pm_api_url", "")).strip()
     if not endpoint:
-        endpoint = os.environ.get("PROXMOX_VE_ENDPOINT", "").strip()
+        endpoint = os.environ.get("PROXMOX_VE_ENDPOINT", "")
     if not endpoint:
-        raise RuntimeError(
-            "Missing Proxmox endpoint. Set defaults.proxmox_provider.pm_api_url "
-            "in configs/defaults.yaml or PROXMOX_VE_ENDPOINT env var."
-        )
+        raise RuntimeError("Missing Proxmox API endpoint.")
 
-    # Determine username: Override > Config > Default
     vm_user = username_override or (install.users[0].username if install.users else "ubuntu")
 
-    # Build tfvars matching root-level variable names
     tfvars = {
         "proxmox_endpoint": endpoint,
         "vm_name": vm.name,
@@ -274,72 +281,54 @@ def render_tf_module(workdir: Path, vm: VMSpec, install: OSInstallConfig, defaul
         "vm_dns": dns,
         "ssh_key": ssh_key,
         "vm_username": vm_user,
+        "vm_password": tenant_password,
     }
 
-    (tf_dir / "terraform.tfvars.json").write_text(
-        json.dumps(tfvars, indent=2), encoding="utf-8"
-    )
+    (tf_dir / "terraform.tfvars.json").write_text(json.dumps(tfvars, indent=2), encoding="utf-8")
 
     if DEBUG:
-        print("📝 Generated terraform.tfvars.json with values:")
-        print(f"   - VM Name: {vm.name}")
-        print(f"   - Node: {node}")
-        print(f"   - IP: {ip}")
-        print(f"   - CPUs: {vm.cpus}, Memory: {vm.memory_mb}MB, Disk: {disk_size}GB")
+        print("📝 Generated terraform.tfvars.json:")
+        print(json.dumps(tfvars, indent=2))
+
+# ---------- Ansible Renderer ----------
 
 def render_ansible_inventory(workdir: Path, vm: VMSpec, install: OSInstallConfig, defaults: Defaults, username_override: Optional[str] = None) -> Path:
-    """Creates inventory and group/host vars for Ansible."""
     ans_dir = workdir / "ansible"
     ensure_clean_dir(ans_dir, clean=True)
 
-    # Minimal YAML inventory (INI also fine)
-    inv = {
-        "all": {
-            "children": {
-                "ubuntu": {"hosts": {}},
-                "nixos": {"hosts": {}},
-                "pxe": {"hosts": {}},
-            }
-        }
-    }
+    tenant_name = getattr(vm, "tenant", "default")
+    pub_key_path = ensure_ssh_keypair(tenant_name)
+    pub_key = pub_key_path.read_text().strip()
+    tenant_password = ensure_tenant_password(tenant_name)
 
-    ans_user = "root"  # Default for non-ubuntu
-    if install.os == "ubuntu":
-        ans_user = username_override or (install.users[0].username if install.users else "ubuntu")
+    if install.users:
+        for user in install.users:
+            if not user.ssh_authorized_keys:
+                user.ssh_authorized_keys.append(pub_key)
+    else:
+        install.users = [UserSpec(username="ubuntu", sudo=True, ssh_authorized_keys=[pub_key])]
 
+    ans_user = username_override or (install.users[0].username if install.users else "ubuntu")
+
+    inv = {"all": {"children": {"ubuntu": {"hosts": {vm.name: {"ansible_host": install.network.address_cidr.split('/')[0]}}}}}}
     host_vars = {
         "ansible_user": ans_user,
+        "ansible_password": tenant_password,
         "network": install.network.model_dump(),
         "packages": install.packages,
         "docker_enabled": install.docker,
         "nix_services": install.nix_services,
         "partitioning": install.partitioning,
+        "users": [u.model_dump() for u in install.users],
     }
-    # Inject common SSH args from defaults if provided (e.g., disable host key checking)
-    try:
-        ssh_args = (defaults.ansible_defaults or {}).get("ssh_common_args")
-        if ssh_args:
-            host_vars["ansible_ssh_common_args"] = ssh_args
-    except Exception:
-        pass
 
-    # Resolve ansible_host (strip CIDR if provided)
-    ansible_host = vm.name
-    if install.network and install.network.address_cidr:
-        try:
-            ansible_host = install.network.address_cidr.split("/", 1)[0]
-        except Exception:
-            ansible_host = install.network.address_cidr
-
-    if vm.hypervisor == "baremetal":
-        inv["all"]["children"]["pxe"]["hosts"][vm.name] = {"ansible_host": ansible_host}
-    elif install.os == "ubuntu":
-        inv["all"]["children"]["ubuntu"]["hosts"][vm.name] = {"ansible_host": ansible_host}
-    else:
-        inv["all"]["children"]["nixos"]["hosts"][vm.name] = {"ansible_host": ansible_host}
+    ssh_args = (defaults.ansible_defaults or {}).get("ssh_common_args")
+    if ssh_args:
+        host_vars["ansible_ssh_common_args"] = ssh_args
 
     (ans_dir / "inventory.yaml").write_text(yaml.safe_dump(inv, sort_keys=False), encoding="utf-8")
     (ans_dir / f"{vm.name}.vars.yaml").write_text(yaml.safe_dump(host_vars, sort_keys=False), encoding="utf-8")
+
     return ans_dir / "inventory.yaml"
 
 # ---------- Orchestration ----------

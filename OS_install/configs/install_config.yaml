@@ -3,22 +3,35 @@ installs:
     os: ubuntu
     version: "24.04"
     docker: true
-    packages: [jq, htop]
+    packages:
+      - vim
+      - curl
+      - ca-certificates
+      - net-tools
     users:
-      - username: devops
+      - username: testuser
         sudo: true
+        shell: /bin/bash
         ssh_authorized_keys:
-          - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAFIEjyg0u7hl40wE27/BKSo+yZih5Aumax/PTgGVQ1t root@Karcsi"
+          - "ssh-ed25519 AAAAB3Nza... testuser@local"
     network:
       hostname: web-01
       domain: lab.local
       dhcp: false
-      address_cidr: "192.168.1.20/24"
-      gateway: "192.168.1.1"
-      dns: ["1.1.1.1", "9.9.9.9"]
+      address_cidr: 192.168.1.20/24
+      gateway: 192.168.1.1
+      dns:
+        - 1.1.1.1
+        - 9.9.9.9
       interfaces:
         - bridge: vmbr0
+          vlan: null
+          mac: null
           model: virtio
+          mtu: null
+    partitioning: {}
+    nix_services: []
+
 
   ci-runner-01:
     os: ubuntu

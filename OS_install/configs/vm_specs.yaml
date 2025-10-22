@@ -1,5 +1,6 @@
 vms:
   - name: web-01
+    tenant: test
     hypervisor: proxmox
     boot_method: iso       # iso | image | pxe
     cpus: 4
