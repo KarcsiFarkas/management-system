@@ -8,6 +8,7 @@ installs:
       - curl
       - ca-certificates
       - net-tools
+      - mosh
     users:
       - username: testuser
         sudo: true
@@ -52,7 +53,7 @@ installs:
     os: nixos
     version: "24.05"
     nix_services: [openssh]
-    packages: [htop, git]
+    packages: [htop, git, mosh]
     users:
       - username: ops
         sudo: true
@@ -91,6 +92,7 @@ installs:
     packages:
       - git
       - vim
+      - mosh
 
     # This list enables services in nixos_install.yml
     nix_services:

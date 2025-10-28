@@ -556,8 +556,8 @@ services:
   # Finance Management
   firefly-iii:
     image: fireflyiii/core:latest
-    container_name: firefly-iii
-    profiles: ["firefly-iii"]
+    container_name: firefly-iii.nix
+    profiles: ["firefly-iii.nix"]
     environment:
       - APP_KEY=${APP_KEY:-changeme-32-character-key-here}
       - DB_CONNECTION=pgsql

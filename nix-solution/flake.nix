@@ -22,8 +22,8 @@
         ./modules/services/traefik.nix
         ./modules/services/nextcloud.nix
         ./modules/services/jellyfin.nix
-        ./modules/services/plex.nix
         ./modules/services/gitlab.nix
+        ./modules/services/gitea.nix
         ./modules/services/vaultwarden.nix
         ./modules/services/immich.nix
         ./modules/services/syncthing.nix
@@ -32,11 +32,10 @@
         ./modules/services/radarr.nix
         ./modules/services/qbittorrent.nix
         ./modules/services/navidrome.nix
-        ./modules/services/pihole.nix
         ./modules/services/freshrss.nix
         ./modules/services/vikunja.nix
         ./modules/services/firefly-iii.nix
-        ./modules/services/homepage.nix
+        ./modules/services/homer.nix
         ./modules/services/lldap.nix
         ./modules/services/authelia.nix
       ];
