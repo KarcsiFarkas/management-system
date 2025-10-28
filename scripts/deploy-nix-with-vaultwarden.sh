@@ -116,14 +116,14 @@ if [[ ! " ${enabled_services[*]} " =~ " vaultwarden " ]]; then
   echo "--> Force-enabled Vaultwarden for password management strategy"
 fi
 
-# Add Vaultwarden specific environment variables
+# Add Vaultwarden specific environment variables.nix
 user_vars["VAULTWARDEN_ADMIN_TOKEN"]=$(openssl rand -base64 32)
 
 echo "--> Step 1: Deploying Vaultwarden first (minimal NixOS configuration)"
 # Create a minimal configuration that only enables Vaultwarden
 minimal_nix_args_str="{ "
 for key in "${!user_vars[@]}"; do
-  # Only include essential variables for Vaultwarden deployment
+  # Only include essential variables.nix for Vaultwarden deployment
   if [[ $key =~ ^(DOMAIN|SERVICE_VAULTWARDEN_ENABLED|SERVICE_TRAEFIK_ENABLED|VAULTWARDEN_.*|POSTGRES_.*)$ ]]; then
     value_escaped=$(printf '%s' "${user_vars[$key]}" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
     minimal_nix_args_str+="\"$key\" = \"$value_escaped\"; "

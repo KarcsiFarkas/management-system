@@ -90,10 +90,10 @@ if [[ ! " ${enabled_services[*]} " =~ " authelia " ]]; then
 fi
 
 echo "--> Preparing environment for Docker Compose with LDAP SSO"
-# Combine both config files and add LDAP-specific variables
+# Combine both config files and add LDAP-specific variables.nix
 cat "$SERVICES_ENV" "$CONFIG_ENV" > "$PROJECT_ROOT/docker-compose-solution/.env"
 
-# Add LDAP/Authelia specific environment variables
+# Add LDAP/Authelia specific environment variables.nix
 cat >> "$PROJECT_ROOT/docker-compose-solution/.env" << EOF
 
 # LDAP/Authelia SSO Configuration (Strategy 1)

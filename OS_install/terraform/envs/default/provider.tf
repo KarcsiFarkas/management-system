@@ -22,7 +22,7 @@ provider "proxmox" {
   insecure = true  # Set to false in production with valid certs
 
   # Authentication via API token (recommended)
-  # Set these via environment variables:
+  # Set these via environment variables.nix:
   # export PROXMOX_VE_API_TOKEN="user@realm!tokenid=secret"
   # OR via terraform.tfvars (not recommended for secrets)
 

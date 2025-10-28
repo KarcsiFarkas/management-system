@@ -1,4 +1,4 @@
-# Root-level variables that provision.py will populate via terraform.tfvars.json
+# Root-level variables.nix that provision.py will populate via terraform.tfvars.json
 
 variable "proxmox_endpoint" {
   description = "Proxmox VE API endpoint URL"

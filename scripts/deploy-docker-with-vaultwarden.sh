@@ -106,7 +106,7 @@ echo "--> Preparing environment for Docker Compose"
 # Combine both config files
 cat "$SERVICES_ENV" "$CONFIG_ENV" > "$PROJECT_ROOT/docker-compose-solution/.env"
 
-# Add Vaultwarden specific environment variables
+# Add Vaultwarden specific environment variables.nix
 cat >> "$PROJECT_ROOT/docker-compose-solution/.env" << EOF
 
 # Vaultwarden Password Management Configuration (Strategy 2)

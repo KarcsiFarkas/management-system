@@ -19,7 +19,7 @@ resource "proxmox_virtual_environment_file" "cloud_init_user_data" {
   node_name    = var.vm_node
 
   source_raw {
-    # Render the template file, passing in our variables
+    # Render the template file, passing in our variables.nix
     data = templatefile("${path.module}/templates/cloud-init.tftpl", {
       vm_name     = var.vm_name
       vm_username = var.vm_username

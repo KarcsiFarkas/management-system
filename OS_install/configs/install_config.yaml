@@ -74,7 +74,7 @@ installs:
     os: nixos  # <-- This tells provision.py to use nixos_install.yml
     version: "24.05"
 
-    # Define the variables that nixos_install.yml needs
+    # Define the variables.nix that nixos_install.yml needs
     network:
       hostname: nixos-vm-01
       dhcp: false

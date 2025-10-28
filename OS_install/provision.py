@@ -240,7 +240,7 @@ def render_tf_module(workdir: Path, vm: VMSpec, install: OSInstallConfig, defaul
 
     # Copy module directory and root files
     shutil.copytree(mod_src, tf_dir / "modules" / "proxmox_vm")
-    for fname in ("main.tf", "variables.tf", "provider.tf", "outputs.tf"):
+    for fname in ("main.tf", "variables.nix.tf", "provider.tf", "outputs.tf"):
         shutil.copy(root_tf_src / fname, tf_dir / fname)
 
     node = (vm.proxmox or {}).get("node", "pve")

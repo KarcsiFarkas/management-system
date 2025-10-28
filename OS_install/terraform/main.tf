@@ -21,7 +21,7 @@ terraform {
 module "paas_vm" {
   source = "./modules/proxmox_vm"
 
-  # Pass variables from root to module
+  # Pass variables.nix from root to module
   vm_name      = var.vm_name
   vm_node      = var.vm_node
   vm_storage   = var.vm_storage
