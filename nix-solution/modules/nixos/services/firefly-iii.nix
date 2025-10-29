@@ -12,7 +12,7 @@ in
 
   config = mkIf cfg.enable {
     # Firefly III needs Nginx+PHP and a database
-    services.nginx.enable = true;
+    services.traefik.enable = true;
     services.phpfpm.enable = true;
     services.postgresql = {
       enable = true;

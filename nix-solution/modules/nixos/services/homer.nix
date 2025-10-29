@@ -11,11 +11,18 @@ in
     configFile = mkOption { type = types.path; default = ./homer-default.yml; };
   };
 
+  # Create a default config file next to this module
+  environment.etc."homer-default.yml" = {
+    source = ./homer-default.yml; # Assumes homer-default.yml is in the same directory
+  };
+
   config = mkIf cfg.enable {
+    # Enable Nginx to serve the static files
     services.nginx.enable = true;
 
     services.nginx.virtualHosts."_" = {
       listen = [{ port = cfg.port; }];
+      # === FIX: Changed pkgs.homer-dashboard to pkgs.homer ===
       root = "${pkgs.homer}/share/homer";
 
       locations."/assets/config.yml" = {
@@ -26,13 +33,8 @@ in
       };
     };
 
-    # This module needs its default config file
-    # Place homer-default.yml in the same directory
-    environment.etc."homer-default.yml" = {
-      source = ./homer-default.yml;
-    };
-
     networking.firewall.allowedTCPPorts = [ cfg.port ];
+    # === FIX: Changed pkgs.homer-dashboard to pkgs.homer ===
     environment.systemPackages = [ pkgs.homer ];
   };
 }

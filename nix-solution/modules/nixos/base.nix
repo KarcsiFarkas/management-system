@@ -19,6 +19,8 @@
   users.users.root.initialHashedPassword = lib.mkDefault "*"; # Lock root account by default
 
   # Nix settings
+  nixpkgs.config.allowUnfree = true;
+
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
   nix.settings.auto-optimise-store = lib.mkDefault true;
   # Add garbage collection settings
