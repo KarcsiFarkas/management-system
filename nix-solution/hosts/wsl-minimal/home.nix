@@ -15,10 +15,11 @@
 
   # Host-specific git config
   programs.git = {
-    enable = true;
-    userName = "WSL Minimal User";
-    userEmail = "wsl-minimal@example.com";
-  };
+      enable = true;
+      userName = "KarcsiFarkas"; # <--- Correct option
+      userEmail = "fkarcsi2001@gmail.com"; # <--- Correct option
+      # ... other git settings ...
+    };
 
   programs.bash.enable = true;
 

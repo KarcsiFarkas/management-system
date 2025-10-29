@@ -5,11 +5,11 @@
   # Define dependencies (inputs)
   inputs = {
     # Nixpkgs (stable or unstable)
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05"; # Match stateVersion
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05"; # Match stateVersion
 
     # Home Manager
     home-manager = {
-      url = "github:nix-community/home-manager/release-24.05"; # Match nixpkgs
+      url = "github:nix-community/home-manager/release-25.05"; # Match nixpkgs
       inputs.nixpkgs.follows = "nixpkgs";
     };
 

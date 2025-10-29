@@ -23,7 +23,7 @@
     enable = true;
     settings = {
       user.name = "Your Name";
-    user.email = "your.email@example.com";
+      user.email = "your.email@example.com";
   };
 
   programs.bash.enable = true; # Or zsh, fish, etc.
