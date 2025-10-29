@@ -16,7 +16,7 @@ in
 
     services.nginx.virtualHosts."_" = {
       listen = [{ port = cfg.port; }];
-      root = "${pkgs.homer-dashboard}/share/homer";
+      root = "${pkgs.homer}/share/homer";
 
       locations."/assets/config.yml" = {
         alias = cfg.configFile;
@@ -33,7 +33,7 @@ in
     };
 
     networking.firewall.allowedTCPPorts = [ cfg.port ];
-    environment.systemPackages = [ pkgs.homer-dashboard ];
+    environment.systemPackages = [ pkgs.homer ];
   };
 }
 

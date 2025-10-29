@@ -67,7 +67,7 @@
   # Many services need a database and/or redis
   services.postgresql.enable = true;
   services.redis.enable = true;
-  services.nginx.enable = true;
+#  services.nginx.enable = true;
 #  services.phpfpm.enable = true;
 #  services.mariadb.enable = true; # Needed for Seafile
 
@@ -153,6 +153,9 @@
   # --- Firewall ---
   # Enable the firewall. All modules will add their own ports.
   networking.firewall.enable = true;
+
+  services.nginx.enable = lib.mkForce false;
+
 
   system.stateVersion = "25.05"; # Match your flake.nix
 }
