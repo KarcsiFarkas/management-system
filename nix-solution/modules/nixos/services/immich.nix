@@ -1,17 +1,38 @@
 { config, lib, pkgs, ... }:
+
+with lib;
 let
-  cfg = config.services.immich;
+  cfg = config.services.paas.immich;
 in
 {
-#  options.services.immich = {
-#    enable = lib.mkEnableOption "Immich photo service (placeholder module)";
-#  };
+  options.services.paas.immich = {
+    enable = mkEnableOption "Immich photo service";
+  };
 
-  # Placeholder: build-safe default; does nothing unless enabled.
-  config = lib.mkIf cfg.enable {
-    warnings = [
-      "services.immich: placeholder module is enabled. No runtime is configured yet."
-    ];
-    # Put a real implementation here (e.g., composeContainers/podman with immich-server/db/redis).
+  config = mkIf cfg.enable {
+    # Immich needs a database and redis
+    services.postgresql = {
+      enable = true;
+      initialScript = pkgs.writeText "immich-db-init" ''
+        CREATE DATABASE immich;
+        CREATE USER immich WITH PASSWORD 'immich';
+        GRANT ALL PRIVILEGES ON DATABASE immich TO immich;
+      '';
+    };
+    services.redis.enable = true;
+
+    services.immich = {
+      enable = true;
+      database.type = "postgresql";
+      database.host = "localhost";
+      database.user = "immich";
+      database.password = "immich"; # WARNING: Insecure
+      database.database = "immich";
+      redis.host = "localhost";
+    };
+
+    # Open the default Immich web port
+    networking.firewall.allowedTCPPorts = [ 2283 ];
   };
 }
+

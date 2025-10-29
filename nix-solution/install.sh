@@ -363,3 +363,15 @@ if ! sudo nixos-rebuild boot --flake ".#$selected_host" --no-write-lock-file; th
 fi
 
 success
+
+# 9) Run status report if available
+if [[ -x ./status.sh ]]; then
+  info "Running post-installation status report..."
+  sleep 2
+  ./status.sh
+elif [[ -f ./status.sh ]]; then
+  chmod +x ./status.sh
+  ./status.sh
+else
+  info "Status report script not found. Create status.sh to see service details."
+fi

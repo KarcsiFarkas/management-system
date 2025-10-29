@@ -1,0 +1,39 @@
+---
+# Homepage configuration
+# See https://fontawesome.com/v5/search for icons options
+# Edit this file to add your services!
+
+title: "My NixOS Dashboard"
+subtitle: "Homer"
+theme: default
+
+services:
+  - name: "Apps"
+    icon: "fas fa-cloud"
+    items:
+      - name: "Vaultwarden"
+        # logo: "assets/tools/vaultwarden.png"
+        subtitle: "Password Manager"
+        url: "http://127.0.0.1:8222" # Access via localhost (assuming Traefik proxies)
+        # url: "https://vault.your.domain" # Example if using Traefik
+
+      - name: "Jellyfin"
+        # logo: "assets/tools/jellyfin.png"
+        subtitle: "Media Server"
+        url: "http://127.0.0.1:8096" # Access via localhost
+        # url: "https://jellyfin.your.domain" # Example if using Traefik
+
+      - name: "Nextcloud"
+        # logo: "assets/tools/nextcloud.png"
+        subtitle: "File Sync"
+        url: "http://127.0.0.1:9001" # Port from nextcloud.nix
+        # url: "https://nextcloud.your.domain" # Example if using Traefik
+
+  - name: "Tools"
+    icon: "fas fa-tools"
+    items:
+      - name: "Traefik"
+        # logo: "assets/tools/traefik.png"
+        subtitle: "Dashboard"
+        url: "http://127.0.0.1:8080" # Access dashboard via localhost
+

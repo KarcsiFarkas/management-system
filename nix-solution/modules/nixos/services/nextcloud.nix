@@ -1,120 +1,53 @@
-{ config, lib, pkgs, userConfig, ... }:
+{ config, lib, pkgs, ... }:
 
 with lib;
-
 let
-  cfg = config.services.custom.nextcloud;
-  mediaRoot = userConfig.MEDIA_ROOT or "/srv/media";
+  cfg = config.services.paas.nextcloud;
 in
 {
-#  options.services.custom.nextcloud = {
-#    enable = mkEnableOption "the custom Nextcloud service";
-#  };
+  options.services.paas.nextcloud = {
+    enable = mkEnableOption "Nextcloud (File Sync)";
+    port = mkOption { type = types.port; default = 9001; };
+    domain = mkOption { type = types.str; default = "nextcloud.example.com"; };
+  };
 
-  config = mkIf (userConfig.SERVICE_NEXTCLOUD_ENABLED or "false" == "true") {
-    services.nextcloud = {
-#      enable = true;
-      package = pkgs.nextcloud28;
-      
-      hostName = userConfig.NEXTCLOUD_HOSTNAME or "nextcloud.${userConfig.DOMAIN or "example.local"}";
-      
-      # Use HTTPS behind reverse proxy
-      https = true;
-      
-      # Database configuration - automatically use PostgreSQL
-      database.createLocally = false;
-      config = {
-        dbtype = "pgsql";
-        dbname = "nextcloud";
-        dbhost = "localhost";
-        dbport = 5432;
-        dbuser = userConfig.POSTGRES_USER or "paas_user";
-        dbpassFile = pkgs.writeText "nextcloud-db-pass" (userConfig.POSTGRES_PASSWORD or "changeme");
-        
-        adminuser = userConfig.NEXTCLOUD_ADMIN_USER or "admin";
-        adminpassFile = pkgs.writeText "nextcloud-admin-pass" (userConfig.NEXTCLOUD_ADMIN_PASSWORD or "changeme");
-        
-        overwriteProtocol = "https";
-        trustedProxies = [ "127.0.0.1" "::1" ];
-      };
-      
-      # Configure data directory with shared media access
-      home = "/var/lib/nextcloud";
-      datadir = "/var/lib/nextcloud/data";
-      
-      # Enable additional apps
-      extraApps = with config.services.nextcloud.package.packages; {
-        inherit contacts calendar tasks;
-      };
-      
-      # Additional configuration
-      extraOptions = {
-        "memcache.local" = "\\OC\\Memcache\\APCu";
-        "default_phone_region" = "US";
-        "maintenance_window_start" = 1;
-      };
-    };
-
-    # Enable PostgreSQL if not already enabled
+  config = mkIf cfg.enable {
+    # Nextcloud needs Nginx+PHP and a database
+    services.nginx.enable = true;
+    services.phpfpm.enable = true;
     services.postgresql = {
       enable = true;
-      ensureDatabases = [ "nextcloud" ];
-      ensureUsers = [
-        {
-          name = userConfig.POSTGRES_USER or "paas_user";
-          ensurePermissions = {
-            "DATABASE nextcloud" = "ALL PRIVILEGES";
-          };
-        }
-      ];
+      initialScript = pkgs.writeText "nextcloud-db-init" ''
+        CREATE DATABASE nextcloud;
+        CREATE USER nextcloud WITH PASSWORD 'nextcloud';
+        GRANT ALL PRIVILEGES ON DATABASE nextcloud TO nextcloud;
+      '';
     };
 
-    # Create shared media directories and set permissions
-    systemd.tmpfiles.rules = [
-      "d ${mediaRoot} 0755 nextcloud nextcloud -"
-      "d ${mediaRoot}/nextcloud 0755 nextcloud nextcloud -"
-      "d ${mediaRoot}/shared 0755 nextcloud nextcloud -"
-    ];
+    services.nextcloud = {
+      enable = true;
+      package = pkgs.nextcloud29; # Use latest
+      hostName = cfg.domain;
+      nginx.listen = [{ port = cfg.port; }]; # Listen on a non-standard port
 
-    # Add nextcloud user to media group for shared access
-    users.users.nextcloud.extraGroups = [ "media" ];
-    users.groups.media = {};
+      # Use postgresql
+      database = {
+        createLocally = false;
+        type = "pgsql";
+        host = "localhost";
+        user = "nextcloud";
+        password = "nextcloud"; # WARNING: Insecure
+        name = "nextcloud";
+      };
 
-    # Create Traefik dynamic configuration for Nextcloud
-    environment.etc."traefik/dynamic/nextcloud.yml".text = mkIf (userConfig.SERVICE_TRAEFIK_ENABLED or "false" == "true") ''
-      http:
-        routers:
-          nextcloud:
-            rule: "Host(`${userConfig.NEXTCLOUD_HOSTNAME or "nextcloud.${userConfig.DOMAIN or "example.local"}"}`)"
-            entryPoints:
-              - websecure
-            service: nextcloud
-            tls:
-              certResolver: letsencrypt
-            middlewares:
-              - nextcloud-caldav
-        
-        services:
-          nextcloud:
-            loadBalancer:
-              servers:
-                - url: "http://127.0.0.1:80"
-        
-        middlewares:
-          nextcloud-caldav:
-            redirectRegex:
-              permanent: true
-              regex: "^https://(.*)/.well-known/(card|cal)dav"
-              replacement: "https://''${1}/remote.php/dav/"
-    '';
+      config = {
+        adminuser = "admin";
+        adminpass = "admin"; # WARNING: Insecure
+        # Use 'trusted_proxies' if behind Traefik
+        # "trusted_proxies" = [ "127.0.0.1" "::1" ];
+      };
+    };
 
-    # Open firewall for Nextcloud
-    networking.firewall.allowedTCPPorts = [ 80 ];
-
-    # Ensure proper file permissions for shared media
-    systemd.services.nextcloud-setup.serviceConfig.ExecStartPost = [
-      "${pkgs.coreutils}/bin/chown -R nextcloud:media ${mediaRoot}/nextcloud"
-      "${pkgs.coreutils}/bin/chmod -R 775 ${mediaRoot}/nextcloud"
-    ];
+    networking.firewall.allowedTCPPorts = [ cfg.port ];
   };
 }
