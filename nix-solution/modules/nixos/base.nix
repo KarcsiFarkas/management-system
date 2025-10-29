@@ -3,9 +3,9 @@
 
 {
   # Basic system settings common across hosts
-  boot.loader.systemd-boot.enable = lib.mkDefault true;
-  boot.loader.efi.canTouchEfiVariables = lib.mkDefault true;
-
+#  boot.loader.systemd-boot.enable = lib.mkDefault true;
+#  boot.loader.efi.canTouchEfiVariables = lib.mkDefault true;
+  boot.loader.grub.enable = false;
   time.timeZone = lib.mkDefault "UTC";
   i18n.defaultLocale = lib.mkDefault "en_US.UTF-8";
 

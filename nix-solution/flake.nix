@@ -5,7 +5,8 @@
   # Define dependencies (inputs)
   inputs = {
     # Nixpkgs (stable or unstable)
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable"; # Or nixos-24.11, etc.
+#    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable"; # Or nixos-24.11, etc.
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11"; # Or nixos-24.11, etc.
 
     # Home Manager
     home-manager = {
@@ -76,6 +77,9 @@
         inherit system;
         specialArgs = { inherit inputs hostname username; }; # Pass inputs and custom args down
         modules = commonModules ++ [
+
+          inputs.nixos-wsl.nixosModules.wsl
+
           # === Home Manager Integration ===
           home-manager.nixosModules.home-manager
           {
