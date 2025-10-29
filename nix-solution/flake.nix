@@ -19,12 +19,18 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    nixos-wsl = {
+      url = "github:nix-community/NixOS-WSL";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+
     # Add other inputs if needed (e.g., hardware specific flakes)
     # hardware.url = "github:NixOS/nixos-hardware";
   };
 
   # Define what your flake provides (outputs)
-  outputs = { self, nixpkgs, home-manager, sops-nix, ... }@inputs:
+  outputs = { self, nixpkgs, home-manager, sops-nix, nixos-wsl, ... }@inputs:
   let
     # Define supported systems
     supportedSystems = [ "x86_64-linux" "aarch64-linux" ]; # Add others if needed
@@ -40,13 +46,13 @@
       # Base NixOS module with common system settings
       ./modules/nixos/base.nix
 
-      # Service modules (toggle per host via options)
-      ./modules/nixos/services/traefik.nix
-      ./modules/nixos/services/jellyfin.nix
-      ./modules/nixos/services/vaultwarden.nix
-      ./modules/nixos/services/authelia.nix
-      ./modules/nixos/services/homer.nix
-      ./modules/nixos/services/immich.nix
+#      # Service modules (toggle per host via options)
+#      ./modules/nixos/services/traefik.nix
+#      ./modules/nixos/services/jellyfin.nix
+#      ./modules/nixos/services/vaultwarden.nix
+#      ./modules/nixos/services/authelia.nix
+#      ./modules/nixos/services/homer.nix
+#      ./modules/nixos/services/immich.nix
 
       # Additional service modules (uncomment as needed)
       # ./modules/nixos/services/nextcloud.nix
@@ -100,7 +106,7 @@
         pathStr = toString hostPath;
         parts = nixpkgs.lib.splitString "/" pathStr;
         hostname = builtins.elemAt parts ((builtins.length parts) - 2);
-        
+
         # Try to read username from variables.nix if it exists
         varsPath = builtins.dirOf hostPath + "/variables.nix";
         vars = if builtins.pathExists varsPath then import varsPath else {};
@@ -117,7 +123,7 @@
       # --- Existing hosts (using mkHost for compatibility) ---
       wsl = mkHost ./hosts/wsl/default.nix "x86_64-linux";
       # test = mkHost ./hosts/test/default.nix "x86_64-linux";
-      
+
       # --- Example of direct nixosSystem usage ---
       # server1 = nixosSystem {
       #   system = "x86_64-linux";

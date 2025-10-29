@@ -21,8 +21,9 @@
   # Configure programs managed by Home Manager
   programs.git = {
     enable = true;
-    userName = "Your Name";
-    userEmail = "your.email@example.com";
+    settings = {
+      user.name = "Your Name";
+    user.email = "your.email@example.com";
   };
 
   programs.bash.enable = true; # Or zsh, fish, etc.

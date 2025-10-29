@@ -5,7 +5,7 @@ in
   options.services.jellyfin.enable = lib.mkEnableOption "Jellyfin media server";
 
   config = lib.mkIf cfg.enable {
-    services.jellyfin.enable = true;
+#    services.jellyfin.enable = true;
 
     users.groups.jellyfin = { };
     users.users.jellyfin = {

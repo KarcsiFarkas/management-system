@@ -150,9 +150,9 @@ ensure_flake_config_for_host() {
   [[ -n "$HOST_NAME" ]] || { err "ensure_flake_config_for_host: host required"; return 2; }
   [[ -f "$FLAKE" ]] || { warn "No flake.nix found; skipping flake wiring."; return 0; }
 
-  # already present?
-  if grep -Eq "nixosConfigurations\\.[[:space:]]*${HOST_NAME}[[:space:]]*=" "$FLAKE"; then
-    info "flake.nix already exposes nixosConfigurations.${HOST_NAME} (mkHost or explicit)."
+  # Check if already present (match full line with host = mkHost or host = nixpkgs.lib.nixosSystem)
+  if grep -Eq "^[[:space:]]*${HOST_NAME}[[:space:]]*=[[:space:]]*(mkHost|nixpkgs\.lib\.nixosSystem)" "$FLAKE"; then
+    info "flake.nix already exposes nixosConfigurations.${HOST_NAME}"
     return 0
   fi
 
@@ -161,10 +161,16 @@ ensure_flake_config_for_host() {
     info "Adding nixosConfigurations.${HOST_NAME} via mkHost"
     local tmp; tmp="$(mktemp)"
     awk -v H="$HOST_NAME" '
-      BEGIN{ inN=0; done=0 }
-      /nixosConfigurations[[:space:]]*=/ { inN=1 }
-      inN==1 && /\{/ && done==0 { print; print "      " H " = mkHost ./hosts/" H "/default.nix \"x86_64-linux\";"; next }
-      /\};/ && inN==1 && done==0 { print; inN=0; done=1; next }
+      BEGIN{ inN=0; done=0; foundOpen=0 }
+      /nixosConfigurations[[:space:]]*=/ { inN=1; print; next }
+      inN==1 && /\{/ && done==0 && foundOpen==0 {
+        print
+        print "      " H " = mkHost ./hosts/" H "/default.nix \"x86_64-linux\";"
+        foundOpen=1
+        done=1
+        next
+      }
+      inN==1 && /^\s*\};?\s*$/ { inN=0 }
       { print }
     ' "$FLAKE" > "$tmp" && mv "$tmp" "$FLAKE"
     return 0
@@ -174,18 +180,20 @@ ensure_flake_config_for_host() {
   info "Adding full nixosConfigurations.${HOST_NAME} stanza"
   local tmp; tmp="$(mktemp)"
   awk -v H="$HOST_NAME" '
-    BEGIN{ inN=0; done=0 }
-    /nixosConfigurations[[:space:]]*=/ { inN=1 }
-    inN==1 && /\{/ && done==0 {
+    BEGIN{ inN=0; done=0; foundOpen=0 }
+    /nixosConfigurations[[:space:]]*=/ { inN=1; print; next }
+    inN==1 && /\{/ && done==0 && foundOpen==0 {
       print
       print "      " H " = nixpkgs.lib.nixosSystem {"
       print "        system = \"x86_64-linux\";"
       print "        specialArgs = { inherit inputs; };"
       print "        modules = [ ./hosts/" H "/default.nix ];"
       print "      };"
+      foundOpen=1
+      done=1
       next
     }
-    /\};/ && inN==1 && done==0 { print; inN=0; done=1; next }
+    inN==1 && /^\s*\};?\s*$/ { inN=0 }
     { print }
   ' "$FLAKE" > "$tmp" && mv "$tmp" "$FLAKE"
 }
@@ -203,7 +211,7 @@ prune_other_hosts() {
   shopt -u nullglob dotglob
 }
 
-# Sanitize WSL hardware-configuration (empty device => null)
+# Sanitize WSL hardware-configuration (empty device => "none")
 sanitize_wsl_hardware_config() {
   local host="$1"
   local f="./hosts/$host/hardware-configuration.nix"
@@ -211,15 +219,11 @@ sanitize_wsl_hardware_config() {
 
   # Apply only on WSL
   if [[ -e /proc/sys/fs/binfmt_misc/WSLInterop ]]; then
-    # Always append overrides; they are harmless if mounts are absent
-    cat >>"$f" <<'EOF'
-
-# --- Appended by install.sh sanitize_wsl_hardware_config ---
-fileSystems."/mnt/wslg/distro".device = lib.mkForce null;
-fileSystems."/tmp/.X11-unix".device   = lib.mkForce null;
-# --- end sanitize ---
-EOF
-    info "Sanitized WSL hardware-configuration.nix (forced empty device -> null)"
+    # Replace empty device strings with "none" in-place
+    # This fixes: device = ""; -> device = "none";
+    local tmp; tmp="$(mktemp)"
+    sed -E 's/(device[[:space:]]*=[[:space:]]*)"";/\1"none";/g' "$f" > "$tmp" && mv "$tmp" "$f"
+    info "Sanitized WSL hardware-configuration.nix (replaced empty device with \"none\")"
   fi
 }
 
@@ -338,7 +342,7 @@ else
     | sudo tee "./hosts/$selected_host/hardware-configuration.nix" >/dev/null
 fi
 
-# 4b) WSL sanitization (empty device -> null)
+# 4b) WSL sanitization (empty device -> "none")
 sanitize_wsl_hardware_config "$selected_host"
 
 # 5) Ensure flake has nixosConfigurations.<host>

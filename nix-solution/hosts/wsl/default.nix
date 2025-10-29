@@ -48,11 +48,11 @@ in
   time.timeZone      = lib.mkDefault "UTC";
   i18n.defaultLocale = lib.mkDefault "en_US.UTF-8";
 
-  # Service toggles (off by default)
-  services.traefik.enable     = lib.mkDefault false;
-  services.jellyfin.enable    = lib.mkDefault false;
-  services.vaultwarden.enable = lib.mkDefault false;
-  services.authelia.enable    = lib.mkDefault false;
+#  # Service toggles (off by default)
+#  services.traefik.enable     = lib.mkDefault false;
+#  services.jellyfin.enable    = lib.mkDefault false;
+#  services.vaultwarden.enable = lib.mkDefault false;
+#  services.authelia.enable    = lib.mkDefault false;
 
   system.stateVersion = lib.mkDefault "24.11";
 }
