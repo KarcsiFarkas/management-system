@@ -1,81 +1,104 @@
-# nix-solution/hosts/wsl/default.nix
 { config
 , lib
 , pkgs
-, inputs # Make sure inputs are passed via specialArgs from flake.nix
-, hostname # Passed via specialArgs
-, username # Passed via specialArgs
+, inputs
+, hostname
+, username
 , ... }:
 
 {
   imports = [
-    # Import the nixos-wsl module HERE specifically for this host
+    # --- Core WSL & Hardware Config ---
     inputs.nixos-wsl.nixosModules.wsl
-
-    # Import hardware config generated for WSL (should be minimal)
     ./hardware-configuration.nix
 
-    # You can still import specific service modules if needed for WSL
-    # E.g., ../../modules/nixos/services/tailscale.nix
+    # --- Import ALL Service Modules ---
+    ../../modules/nixos/services/authelia.nix
+    ../../modules/nixos/services/homer.nix
+    ../../modules/nixos/services/immich.nix
+    ../../modules/nixos/services/navidrome.nix
+    ../../modules/nixos/services/nextcloud.nix
+    ../../modules/nixos/services/qbittorrent.nix
+    ../../modules/nixos/services/radarr.nix
+    ../../modules/nixos/services/sonarr.nix
+    ../../modules/nixos/services/syncthing.nix
+    ../../modules/nixos/services/traefik.nix
+    ../../modules/nixos/services/vaultwarden.nix
+    ../../modules/nixos/services/firefly-iii.nix
+    ../../modules/nixos/services/freshrss.nix
+    ../../modules/nixos/services/gitea.nix
+    ../../modules/nixos/services/gitlab.nix
+    ../../modules/nixos/services/seafile.nix
+    ../../modules/nixos/services/vikunja.nix
+    # Note: jellyfin.nix is NOT imported, it's configured directly below
   ];
 
   # --- WSL integration ---
   wsl.enable = true;
-  # Optional: Enable WSL utilities like wslview
-  wsl.utilities.enable = true;
-  # Optional: Enable systemd integration if needed (requires specific WSL setup)
-  # wsl.nativeSystemd = true;
-
-  # Treat environment as container-like (no early boot responsibilities)
   boot.isContainer = true;
-
-  # === Absolutely no bootloaders/EFI in WSL ===
   boot.loader.systemd-boot.enable = lib.mkForce false;
-  boot.loader.grub.enable         = lib.mkForce false;
+  boot.loader.grub.enable = lib.mkForce false;
   boot.loader.efi.canTouchEfiVariables = lib.mkForce false;
-
-  # === No Linux swap in WSL; Windows manages it via .wslconfig ===
   swapDevices = [ ];
 
   # --- Host basics ---
-  networking.hostName = hostname; # Set from specialArgs
-  time.timeZone = "Europe/Budapest"; # Or your preferred timezone
+  networking.hostName = hostname;
+  time.timeZone = "Europe/Budapest";
 
   # --- User definition ---
-  # Define the primary user for WSL. Home Manager will configure their environment.
   users.users.${username} = {
     isNormalUser = true;
-    extraGroups = [ "wheel" ]; # 'wheel' for sudo access
-    # Ensure initial password is set for the first login, or use SSH keys.
-    # It's recommended to set the password manually after first boot: `passwd your_username`
-    # initialPassword = "yourpassword"; # Less secure
-    # Or use a hashed password (generate with mkpasswd -m sha-512)
-    # initialHashedPassword = "$6$yourhashhere...";
+    extraGroups = [ "wheel" ];
+    home = "/home/${username}"; # Explicitly set home directory
   };
 
-  # --- Systemd, DBus, cron ---
-  # Enable D-Bus for inter-process communication (needed by many apps)
+  # --- Systemd, DBus ---
   services.dbus.enable = true;
-  # Enable cron if you need scheduled tasks (systemd timers are often preferred)
-  # services.cron.enable = true;
-
-  # --- System Packages specific to WSL ---
-  # Keep this minimal; prefer user packages via Home Manager
-  environment.systemPackages = with pkgs; [
-    git curl htop ripgrep
-    # Add essentials needed system-wide in WSL
-  ];
 
   # --- Nix Settings ---
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
-    # Suppress the "Git tree is dirty" warning during rebuilds if desired
     warn-dirty = false;
   };
 
-  # Optional: Disable documentation build on WSL to save space/time
-  documentation.enable = false;
+  # --- Enable Core Dependencies ---
+  # Many services need a database and/or redis
+  services.postgresql.enable = true;
+  services.redis.enable = true;
 
-  # Set the state version - MAKE SURE this matches your nixpkgs branch (e.g., 23.11)
-  system.stateVersion = "25.05";
+  # --- Enable Services ---
+  # These options come from the `mkEnableOption` in each module
+  services.paas.traefik.enable = true;
+  services.paas.vaultwarden.enable = true;
+  services.paas.authelia.enable = true;
+  services.paas.homer.enable = true;
+  services.paas.immich.enable = true;
+  services.paas.navidrome.enable = true;
+  services.paas.nextcloud.enable = true;
+  services.paas.qbittorrent.enable = true;
+  services.paas.radarr.enable = true;
+  services.paas.sonarr.enable = true;
+  services.paas.syncthing.enable = true;
+  services.paas.firefly-iii.enable = true;
+  services.paas.freshrss.enable = true;
+  services.paas.gitea.enable = true;
+  services.paas.gitlab.enable = true; # WARNING: Very resource heavy
+  services.paas.seafile.enable = true;
+  services.paas.vikunja.enable = true;
+
+  # === FIX: Configure Jellyfin Directly ===
+  # This ensures Jellyfin uses its standard port (8096)
+  # and does NOT conflict with Traefik on port 80.
+  services.jellyfin = {
+    enable = true;
+    port = 8096; # Explicitly set default port
+    openFirewall = true;
+  };
+
+  # --- Firewall ---
+  # Allow all enabled service ports.
+  # The modules themselves add their ports to `networking.firewall.allowedTCPPorts`.
+  networking.firewall.enable = true;
+
+  system.stateVersion = "25.05"; # Match your flake.nix
 }

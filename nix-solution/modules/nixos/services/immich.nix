@@ -3,9 +3,9 @@ let
   cfg = config.services.immich;
 in
 {
-  options.services.immich = {
-    enable = lib.mkEnableOption "Immich photo service (placeholder module)";
-  };
+#  options.services.immich = {
+#    enable = lib.mkEnableOption "Immich photo service (placeholder module)";
+#  };
 
   # Placeholder: build-safe default; does nothing unless enabled.
   config = lib.mkIf cfg.enable {

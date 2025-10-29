@@ -7,13 +7,13 @@ let
   mediaRoot = userConfig.MEDIA_ROOT or "/srv/media";
 in
 {
-  options.services.custom.nextcloud = {
-    enable = mkEnableOption "the custom Nextcloud service";
-  };
+#  options.services.custom.nextcloud = {
+#    enable = mkEnableOption "the custom Nextcloud service";
+#  };
 
   config = mkIf (userConfig.SERVICE_NEXTCLOUD_ENABLED or "false" == "true") {
     services.nextcloud = {
-      enable = true;
+#      enable = true;
       package = pkgs.nextcloud28;
       
       hostName = userConfig.NEXTCLOUD_HOSTNAME or "nextcloud.${userConfig.DOMAIN or "example.local"}";

@@ -2,7 +2,7 @@
 let cfg = config.services.jellyfin;
 in
 {
-  options.services.jellyfin.enable = lib.mkEnableOption "Jellyfin media server";
+#  options.services.jellyfin.enable = lib.mkEnableOption "Jellyfin media server";
 
   config = lib.mkIf cfg.enable {
 #    services.jellyfin.enable = true;
@@ -14,7 +14,7 @@ in
       extraGroups = lib.mkAfter [ "video" "render" ];
     };
 
-    hardware.opengl.enable = lib.mkDefault true;
+    hardware.graphics.enable = lib.mkDefault true;
     networking.firewall.allowedTCPPorts = lib.mkAfter [ 8096 8920 ];
   };
 }

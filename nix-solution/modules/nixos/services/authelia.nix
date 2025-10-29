@@ -1,230 +1,136 @@
+# nix-solution/modules/nixos/services/authelia.nix
 { config, lib, pkgs, ... }:
+
+with lib;
+
 let
-  cfg = config.services.authelia;
+  cfg = config.services.authelia-main; # Using a custom namespace for clarity
 in
 {
-  options.services.authelia = {
-    enable = lib.mkEnableOption "Authelia SSO/2FA (placeholder module)";
+  options.services.authelia-main = {
+    enable = mkEnableOption "Authelia SSO/2FA Server";
+
+    settings = mkOption {
+      type = types.attrs;
+      default = {};
+      description = "Authelia configuration settings attribute set. See https://www.authelia.com/configuration/ for details.";
+      example = literalExpression ''
+        {
+          jwt_secret = "/run/secrets/authelia_jwt_secret";
+          session = {
+            secret = "/run/secrets/authelia_session_secret";
+            redis = {
+              host = "localhost"; # Assuming Redis is running locally
+              port = 6379;
+            };
+          };
+          authentication_backend = {
+            file = {
+              path = "/var/lib/authelia/users_database.yml";
+              password = {
+                algorithm = "argon2id";
+                # ... other password settings
+              };
+            };
+            # OR LDAP config if using LLDAP
+            # ldap = { ... };
+          };
+          notifier = {
+            # Optional SMTP settings for password resets etc.
+            # smtp = { ... };
+          };
+          # Define access control rules, default policy, etc.
+          access_control = {
+            default_policy = "deny";
+            rules = [
+              # Allow access for specific domains/users
+              { domain = [ "*.your.domain" ]; policy = "two_factor"; }
+            ];
+          };
+        }
+      '';
+    };
+
+    secrets = mkOption {
+      type = types.attrsOf types.str;
+      default = {};
+      description = "Attribute set mapping secret names (e.g., 'authelia_jwt_secret') to their plain text values. Used with sops-nix.";
+      example = literalExpression ''
+        {
+          authelia_jwt_secret = "your-long-random-jwt-secret";
+          authelia_session_secret = "your-long-random-session-secret";
+          # authelia_ldap_password = "your-ldap-bind-password";
+        }
+      '';
+    };
+
+    usersFileContent = mkOption {
+      type = types.nullOr types.lines;
+      default = null;
+      description = "Content for the file-based user database (/var/lib/authelia/users_database.yml).";
+      example = ''
+        users:
+          testuser:
+            displayname: "Test User"
+            # Generate hash using: authelia hash-password 'yourpassword'
+            password: "$argon2id$v=19$m=65536,t=3,p=4$yourHasheDsaLt$yoUrH4sH"
+            email: test.user@example.com
+            groups:
+              - admins
+              - dev
+      '';
+    };
   };
 
-  # Placeholder only: prevents unknown-option errors while keeping the switch surface.
-  config = lib.mkIf cfg.enable {
-    warnings = [
-      "services.authelia: placeholder module enabled. No runtime configured yet."
+  config = mkIf cfg.enable {
+
+    # === Authelia Service Configuration ===
+    services.authelia.instances.main = {
+      enable = true;
+      # Pass the settings directly from the module option
+      settings = cfg.settings;
+    };
+
+    # === Secrets Management via sops-nix ===
+    # Define the secrets needed by Authelia
+    sops.secrets = builtins.mapAttrs
+      (name: value: {
+        # Path where the secret file will be created
+        path = "/run/secrets/${name}";
+        # Ensure Authelia can read it
+        owner = config.services.authelia.instances.main.user;
+        group = config.services.authelia.instances.main.group;
+        mode = "0440";
+      })
+      cfg.secrets; # Use the secrets defined in the module option
+
+    # === Users Database File ===
+    environment.etc."authelia/users_database.yml" = lib.mkIf (cfg.usersFileContent != null) {
+      text = cfg.usersFileContent;
+      mode = "0440";
+      user = config.services.authelia.instances.main.user;
+      group = config.services.authelia.instances.main.group;
+    };
+
+    # Ensure the config links the generated users file if file auth is used
+    # This might require adjusting the cfg.settings example/usage slightly
+    # E.g., ensure settings.authentication_backend.file.path points to /etc/authelia/users_database.yml
+
+    # === Required Dependencies (Example: Redis for sessions) ===
+    # Enable Redis if it's configured in settings.session.redis
+    services.redis.servers."".enable = lib.mkIf (cfg.settings ? "session" && cfg.settings.session ? "redis") true;
+
+    # === Data Directory ===
+    systemd.tmpfiles.rules = [
+      # Authelia's state dir (includes file DB if path is relative)
+      "d /var/lib/authelia-main 0750 ${config.services.authelia.instances.main.user} ${config.services.authelia.instances.main.group} -"
     ];
+
+    # === Firewall ===
+    networking.firewall.allowedTCPPorts = [
+      # Default Authelia port
+      (cfg.settings.server.port or 9091)
+    ];
+
   };
 }
-
-
-
-
-#{ config, lib, pkgs, userConfig, ... }:
-#
-#with lib;
-#
-#let
-#  cfg = config.services.custom.authelia;
-#in
-#{
-#  options.services.custom.authelia = {
-#    enable = mkEnableOption "the custom Authelia SSO service";
-#  };
-#
-#  config = mkIf (userConfig.SERVICE_AUTHELIA_ENABLED or "false" == "true") {
-#    services.authelia.instances.main = {
-#      enable = true;
-#
-#      settings = {
-#        # Server configuration
-#        server = {
-#          host = "127.0.0.1";
-#          port = 9091;
-#        };
-#
-#        # Logging configuration
-#        log = {
-#          level = "info";
-#        };
-#
-#        # JWT secret for token validation
-#        jwt_secret = userConfig.AUTHELIA_JWT_SECRET or "changeme-jwt-secret";
-#
-#        # Default redirection URL
-#        default_redirection_url = "https://${userConfig.DOMAIN or "example.local"}";
-#
-#        # TOTP configuration
-#        totp = {
-#          issuer = "authelia.com";
-#        };
-#
-#        # Authentication backend - LDAP
-#        authentication_backend = {
-#          ldap = {
-#            implementation = "custom";
-#            url = "ldap://127.0.0.1:3890";
-#            timeout = "5s";
-#            start_tls = false;
-#            tls = {
-#              skip_verify = false;
-#              minimum_version = "TLS1.2";
-#            };
-#            base_dn = userConfig.LDAP_BASE_DN or "dc=example,dc=local";
-#            username_attribute = "uid";
-#            additional_users_dn = "ou=people";
-#            users_filter = "(&({username_attribute}={input})(objectClass=person))";
-#            additional_groups_dn = "ou=groups";
-#            groups_filter = "(member={dn})";
-#            group_name_attribute = "cn";
-#            mail_attribute = "mail";
-#            display_name_attribute = "displayName";
-#            user = "cn=admin,ou=people,${userConfig.LDAP_BASE_DN or "dc=example,dc=local"}";
-#            password = userConfig.LLDAP_ADMIN_PASSWORD or "changeme";
-#          };
-#        };
-#
-#        # Access control configuration
-#        access_control = {
-#          default_policy = "deny";
-#          rules = [
-#            {
-#              domain = "auth.${userConfig.DOMAIN or "example.local"}";
-#              policy = "bypass";
-#            }
-#            {
-#              domain = "*.${userConfig.DOMAIN or "example.local"}";
-#              policy = "one_factor";
-#            }
-#          ];
-#        };
-#
-#        # Session configuration
-#        session = {
-#          name = "authelia_session";
-#          domain = userConfig.DOMAIN or "example.local";
-#          same_site = "lax";
-#          secret = userConfig.AUTHELIA_SESSION_SECRET or "changeme-session-secret";
-#          expiration = "1h";
-#          inactivity = "5m";
-#          remember_me_duration = "1M";
-#        };
-#
-#        # Regulation configuration
-#        regulation = {
-#          max_retries = 3;
-#          find_time = "120s";
-#          ban_time = "300s";
-#        };
-#
-#        # Storage configuration
-#        storage = {
-#          encryption_key = userConfig.AUTHELIA_STORAGE_ENCRYPTION_KEY or "changeme-storage-key";
-#          local = {
-#            path = "/var/lib/authelia-main/db.sqlite3";
-#          };
-#        };
-#
-#        # Notification configuration
-#        notifier = {
-#          disable_startup_check = false;
-#          filesystem = {
-#            filename = "/var/lib/authelia-main/notification.txt";
-#          };
-#        };
-#      };
-#    };
-#
-#    # Create Authelia data directory
-#    systemd.tmpfiles.rules = [
-#      "d /var/lib/authelia-main 0750 authelia authelia -"
-#    ];
-#
-#    # Open firewall port
-#    networking.firewall.allowedTCPPorts = [ 9091 ];
-#
-#    # Create Traefik dynamic configuration for Authelia
-#    environment.etc."traefik/dynamic/authelia.yml".text = mkIf (userConfig.SERVICE_TRAEFIK_ENABLED or "false" == "true") ''
-#      http:
-#        routers:
-#          authelia:
-#            rule: "Host(`${userConfig.AUTHELIA_HOSTNAME or "auth.${userConfig.DOMAIN or "example.local"}"}`)"
-#            entryPoints:
-#              - websecure
-#            service: authelia
-#            tls:
-#              certResolver: letsencrypt
-#
-#        services:
-#          authelia:
-#            loadBalancer:
-#              servers:
-#                - url: "http://127.0.0.1:9091"
-#
-#        middlewares:
-#          authelia:
-#            forwardAuth:
-#              address: "http://127.0.0.1:9091/api/verify?rd=https://auth.${userConfig.DOMAIN or "example.local"}"
-#              trustForwardHeader: true
-#              authResponseHeaders:
-#                - "Remote-User"
-#                - "Remote-Groups"
-#                - "Remote-Name"
-#                - "Remote-Email"
-#    '';
-#
-#    # Create systemd service to wait for LLDAP before starting Authelia
-#    systemd.services.authelia-main = {
-#      after = [ "lldap.service" ];
-#      wants = [ "lldap.service" ];
-#      serviceConfig = {
-#        # Add a pre-start script to wait for LLDAP
-#        ExecStartPre = pkgs.writeShellScript "wait-for-lldap" ''
-#          echo "Waiting for LLDAP to be ready..."
-#          for i in {1..30}; do
-#            if ${pkgs.curl}/bin/curl -s http://localhost:17170/health >/dev/null 2>&1; then
-#              echo "LLDAP is ready"
-#              exit 0
-#            fi
-#            echo "Waiting for LLDAP... ($i/30)"
-#            sleep 2
-#          done
-#          echo "Warning: LLDAP may not be ready, but starting Authelia anyway"
-#          exit 0
-#        '';
-#      };
-#    };
-#
-#    # Install utilities for Authelia administration
-#    environment.systemPackages = with pkgs; [
-#      authelia
-#    ];
-#
-#    # Create helper script for Authelia operations
-#    environment.etc."authelia/admin-tools.sh".source = pkgs.writeShellScript "authelia-admin" ''
-#      #!/bin/bash
-#      # Authelia Administration Helper Script
-#
-#      AUTHELIA_URL="http://localhost:9091"
-#
-#      case "$1" in
-#        "status")
-#          echo "Checking Authelia status..."
-#          ${pkgs.curl}/bin/curl -s "$AUTHELIA_URL/api/health" | ${pkgs.jq}/bin/jq .
-#          ;;
-#        "users")
-#          echo "This would show LDAP users (requires LDAP tools)"
-#          /etc/lldap/admin-tools.sh search "(objectClass=person)"
-#          ;;
-#        "config")
-#          echo "Authelia configuration location: /var/lib/authelia-main/"
-#          echo "Logs: journalctl -u authelia-main"
-#          ;;
-#        *)
-#          echo "Usage: $0 {status|users|config}"
-#          echo "  status  - Check Authelia health status"
-#          echo "  users   - List LDAP users"
-#          echo "  config  - Show configuration info"
-#          ;;
-#      esac
-#    '';
-#  };
-#}

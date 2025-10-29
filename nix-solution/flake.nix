@@ -10,7 +10,7 @@
 
     # Home Manager
     home-manager = {
-      url = "github:nix-community/home-manager";
+      url = "github:nix-community/home-manager/release-25.05";
       inputs.nixpkgs.follows = "nixpkgs"; # Ensure HM uses the same nixpkgs
     };
 
@@ -45,14 +45,13 @@
       ./modules/nixos/base.nix
 
       # Service modules (uncomment as needed, configure per-host)
-      # ./modules/nixos/services/traefik.nix
-      # ./modules/nixos/services/jellyfin.nix # Configure in host file instead
-      # ./modules/nixos/services/vaultwarden.nix
-      # ./modules/nixos/services/authelia.nix
-      # ./modules/nixos/services/homer.nix
-      # ./modules/nixos/services/immich.nix
-      # ./modules/nixos/services/lldap.nix
-      # ./modules/nixos/services/nextcloud.nix
+       ./modules/nixos/services/traefik.nix
+       ./modules/nixos/services/jellyfin.nix # Configure in host file instead
+       ./modules/nixos/services/vaultwarden.nix
+       ./modules/nixos/services/authelia.nix
+       ./modules/nixos/services/homer.nix
+       ./modules/nixos/services/immich.nix
+#       ./modules/nixos/services/nextcloud.nix
     ];
 
     # Build NixOS system configurations
