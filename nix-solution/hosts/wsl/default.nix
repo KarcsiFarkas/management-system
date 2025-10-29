@@ -1,58 +1,81 @@
-{ config, lib, pkgs, ... }:
+# nix-solution/hosts/wsl/default.nix
+{ config
+, lib
+, pkgs
+, inputs # Make sure inputs are passed via specialArgs from flake.nix
+, hostname # Passed via specialArgs
+, username # Passed via specialArgs
+, ... }:
 
-let
-  vars  = import ./variables.nix;
-  user  = vars.username or "nixuser";
-  net   = vars.networking or { };
-  mode  = net.mode or "static";
-  iface = net.interface or "eth0";
-  ipv4  = net.ipv4 or {
-    address      = "192.168.1.50";
-    prefixLength = 24;
-    gateway      = "192.168.1.1";
-    nameservers  = [ "1.1.1.1" "8.8.8.8" ];
-  };
-
-  isStatic = (mode == "static");
-  isDhcp   = (mode == "dhcp");
-in
 {
-  imports = [ ./hardware-configuration.nix ];
+  imports = [
+    # Import the nixos-wsl module HERE specifically for this host
+    inputs.nixos-wsl.nixosModules.wsl
 
-  networking.hostName = lib.mkDefault "templated-host";
+    # Import hardware config generated for WSL (should be minimal)
+    ./hardware-configuration.nix
 
-  users.users.${user} = {
-    isNormalUser = true;
-    extraGroups  = [ "wheel" "networkmanager" ];
-    shell        = pkgs.bashInteractive;
-  };
-
-  # Stay explicit: no global DHCP; flip per iface
-  networking.networkmanager.enable = false;
-  networking.useDHCP = false;
-
-  # ---- Consolidate dynamic interface into ONE assignment ----
-  networking.interfaces.${iface} = lib.mkMerge [
-    { useDHCP = isDhcp; }
-    (lib.mkIf isStatic {
-      ipv4.addresses = [
-        { address = ipv4.address; prefixLength = ipv4.prefixLength; }
-      ];
-    })
+    # You can still import specific service modules if needed for WSL
+    # E.g., ../../modules/nixos/services/tailscale.nix
   ];
 
-  # Static-only globals
-  networking.defaultGateway = lib.mkIf isStatic ipv4.gateway;
-  networking.nameservers    = lib.mkIf isStatic ipv4.nameservers;
+  # --- WSL integration ---
+  wsl.enable = true;
+  # Optional: Enable WSL utilities like wslview
+  wsl.utilities.enable = true;
+  # Optional: Enable systemd integration if needed (requires specific WSL setup)
+  # wsl.nativeSystemd = true;
 
-  time.timeZone      = lib.mkDefault "UTC";
-  i18n.defaultLocale = lib.mkDefault "en_US.UTF-8";
+  # Treat environment as container-like (no early boot responsibilities)
+  boot.isContainer = true;
 
-#  # Service toggles (off by default)
-#  services.traefik.enable     = lib.mkDefault false;
-#  services.jellyfin.enable    = lib.mkDefault false;
-#  services.vaultwarden.enable = lib.mkDefault false;
-#  services.authelia.enable    = lib.mkDefault false;
+  # === Absolutely no bootloaders/EFI in WSL ===
+  boot.loader.systemd-boot.enable = lib.mkForce false;
+  boot.loader.grub.enable         = lib.mkForce false;
+  boot.loader.efi.canTouchEfiVariables = lib.mkForce false;
 
-  system.stateVersion = lib.mkDefault "24.11";
+  # === No Linux swap in WSL; Windows manages it via .wslconfig ===
+  swapDevices = [ ];
+
+  # --- Host basics ---
+  networking.hostName = hostname; # Set from specialArgs
+  time.timeZone = "Europe/Budapest"; # Or your preferred timezone
+
+  # --- User definition ---
+  # Define the primary user for WSL. Home Manager will configure their environment.
+  users.users.${username} = {
+    isNormalUser = true;
+    extraGroups = [ "wheel" ]; # 'wheel' for sudo access
+    # Ensure initial password is set for the first login, or use SSH keys.
+    # It's recommended to set the password manually after first boot: `passwd your_username`
+    # initialPassword = "yourpassword"; # Less secure
+    # Or use a hashed password (generate with mkpasswd -m sha-512)
+    # initialHashedPassword = "$6$yourhashhere...";
+  };
+
+  # --- Systemd, DBus, cron ---
+  # Enable D-Bus for inter-process communication (needed by many apps)
+  services.dbus.enable = true;
+  # Enable cron if you need scheduled tasks (systemd timers are often preferred)
+  # services.cron.enable = true;
+
+  # --- System Packages specific to WSL ---
+  # Keep this minimal; prefer user packages via Home Manager
+  environment.systemPackages = with pkgs; [
+    git curl htop ripgrep
+    # Add essentials needed system-wide in WSL
+  ];
+
+  # --- Nix Settings ---
+  nix.settings = {
+    experimental-features = [ "nix-command" "flakes" ];
+    # Suppress the "Git tree is dirty" warning during rebuilds if desired
+    warn-dirty = false;
+  };
+
+  # Optional: Disable documentation build on WSL to save space/time
+  documentation.enable = false;
+
+  # Set the state version - MAKE SURE this matches your nixpkgs branch (e.g., 23.11)
+  system.stateVersion = "25.05";
 }

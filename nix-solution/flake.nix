@@ -5,8 +5,8 @@
   # Define dependencies (inputs)
   inputs = {
     # Nixpkgs (stable or unstable)
-#    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable"; # Or nixos-24.11, etc.
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11"; # Or nixos-24.11, etc.
+    # Use a specific branch, e.g., nixos-23.11 or nixos-unstable
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05"; # Make sure this matches your system.stateVersion
 
     # Home Manager
     home-manager = {
@@ -20,11 +20,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # WSL Support
     nixos-wsl = {
       url = "github:nix-community/NixOS-WSL";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
 
     # Add other inputs if needed (e.g., hardware specific flakes)
     # hardware.url = "github:NixOS/nixos-hardware";
@@ -39,36 +39,20 @@
     # Helper function to generate NixOS configurations for each system
     forAllSystems = function: nixpkgs.lib.genAttrs supportedSystems (system: function system);
 
-    # Import your custom library/helpers if you create one (optional)
-    # lib = import ./lib { inherit inputs; };
-
-    # Shared modules applied to all hosts
+    # Shared modules applied to all hosts (except WSL module which is host-specific)
     commonModules = [
       # Base NixOS module with common system settings
       ./modules/nixos/base.nix
 
-#      # Service modules (toggle per host via options)
-#      ./modules/nixos/services/traefik.nix
-#      ./modules/nixos/services/jellyfin.nix
-#      ./modules/nixos/services/vaultwarden.nix
-#      ./modules/nixos/services/authelia.nix
-#      ./modules/nixos/services/homer.nix
-#      ./modules/nixos/services/immich.nix
-
-      # Additional service modules (uncomment as needed)
-      # ./modules/nixos/services/nextcloud.nix
-      # ./modules/nixos/services/gitlab.nix
-      # ./modules/nixos/services/gitea.nix
-      # ./modules/nixos/services/syncthing.nix
-      # ./modules/nixos/services/seafile.nix
-      # ./modules/nixos/services/sonarr.nix
-      # ./modules/nixos/services/radarr.nix
-      # ./modules/nixos/services/qbittorrent.nix
-      # ./modules/nixos/services/navidrome.nix
-      # ./modules/nixos/services/freshrss.nix
-      # ./modules/nixos/services/vikunja.nix
-      # ./modules/nixos/services/firefly-iii.nix
+      # Service modules (uncomment as needed, configure per-host)
+      # ./modules/nixos/services/traefik.nix
+      # ./modules/nixos/services/jellyfin.nix # Configure in host file instead
+      # ./modules/nixos/services/vaultwarden.nix
+      # ./modules/nixos/services/authelia.nix
+      # ./modules/nixos/services/homer.nix
+      # ./modules/nixos/services/immich.nix
       # ./modules/nixos/services/lldap.nix
+      # ./modules/nixos/services/nextcloud.nix
     ];
 
     # Build NixOS system configurations
@@ -77,9 +61,6 @@
         inherit system;
         specialArgs = { inherit inputs hostname username; }; # Pass inputs and custom args down
         modules = commonModules ++ [
-
-          inputs.nixos-wsl.nixosModules.wsl
-
           # === Home Manager Integration ===
           home-manager.nixosModules.home-manager
           {
@@ -97,16 +78,16 @@
           ./secrets # Import secrets configuration
 
           # === Host Specific Configuration ===
-          ./hosts/${hostname}/default.nix # Includes hardware-configuration.nix
+          # This now imports hardware-config AND the WSL module if needed
+          ./hosts/${hostname}/default.nix
 
           # === Include any extra modules passed ===
         ] ++ extraModules;
       };
 
-    # Helper: compose a host from its ./hosts/<name>/default.nix (legacy compatibility)
+    # Helper: compose a host from its ./hosts/<name>/default.nix
     mkHost = hostPath: system:
       let
-        # Extract hostname from path
         pathStr = toString hostPath;
         parts = nixpkgs.lib.splitString "/" pathStr;
         hostname = builtins.elemAt parts ((builtins.length parts) - 2);
@@ -114,55 +95,49 @@
         # Try to read username from variables.nix if it exists
         varsPath = builtins.dirOf hostPath + "/variables.nix";
         vars = if builtins.pathExists varsPath then import varsPath else {};
-        username = vars.username or "nixuser";
+
+        # Default username logic: use vars.username if present, otherwise nixuser,
+        # but specifically default to wsluser for the 'wsl' host.
+        defaultUsername = if hostname == "wsl" then "wsluser" else "nixuser";
+        username = vars.username or defaultUsername;
       in
       nixosSystem {
         inherit system hostname username;
       };
+
   in
   {
     # === NixOS Configurations ===
-    # Define each of your machines here
     nixosConfigurations = {
-      # --- Existing hosts (using mkHost for compatibility) ---
       wsl = mkHost ./hosts/wsl/default.nix "x86_64-linux";
       # test = mkHost ./hosts/test/default.nix "x86_64-linux";
-
-      # --- Example of direct nixosSystem usage ---
-      # server1 = nixosSystem {
-      #   system = "x86_64-linux";
-      #   hostname = "server1";
-      #   username = "karcsi";
-      #   # extraModules = [ ./path/to/extra/module.nix ]; # Optional
-      # };
-
-      # --- Laptop Example (Add this if you have another machine) ---
-      # mylaptop = nixosSystem {
-      #   system = "x86_64-linux";
-      #   hostname = "mylaptop";
-      #   username = "karcsi";
-      #   # If your laptop needs specific hardware quirks
-      #   # extraModules = [ inputs.hardware.nixosModules.lenovo-thinkpad-x1-carbon-gen9 ];
-      # };
+      # server1 = nixosSystem { system = "x86_64-linux"; hostname = "server1"; username = "karcsi"; };
     };
 
+    # === Dev Shells Output ===
+    devShells = forAllSystems (system:
+      let pkgs = nixpkgs.legacyPackages.${system};
+      in {
+        default = pkgs.mkShell {
+          packages = with pkgs; [
+            # Adjust Python version if needed based on your nixpkgs branch
+            python311
+            python311Packages.pip
+            terraform
+            ansible
+            ansible-lint
+            # just # Uncomment if you use 'just'
+          ];
+        };
+      });
+
     # === Home Manager Configurations (Standalone - Optional) ===
-    # You can define standalone HM configs if you don't manage the full OS
-    # homeConfigurations = {
-    #   "karcsi@server1" = home-manager.lib.homeManagerConfiguration {
-    #     pkgs = nixpkgs.legacyPackages.x86_64-linux; # System specific
-    #     extraSpecialArgs = { inherit inputs; hostname = "server1"; username = "karcsi"; };
-    #     modules = [ ./hosts/server1/home.nix ];
-    #   };
-    # };
+    # homeConfigurations = { ... };
 
     # === Overlays (Optional) ===
     # overlays.default = import ./overlays { inherit inputs; };
 
     # === Packages (Optional) ===
     # packages = forAllSystems (system: import ./pkgs { pkgs = nixpkgs.legacyPackages.${system}; });
-
-    # === Dev Shells (Optional) ===
-    # devShells = forAllSystems (system: import ./shells { pkgs = nixpkgs.legacyPackages.${system}; });
   };
 }
