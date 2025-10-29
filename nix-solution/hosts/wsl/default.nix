@@ -30,7 +30,7 @@
     ../../modules/nixos/services/traefik.nix
     ../../modules/nixos/services/vaultwarden.nix
 #    ../../modules/nixos/services/vikunja.nix
-    # Note: jellyfin.nix is NOT imported, it's configured directly below
+    # Note: jellyfin is configured directly below using official module
   ];
 
   # --- WSL integration ---
@@ -67,16 +67,15 @@
   # Many services need a database and/or redis
   services.postgresql.enable = true;
   services.redis.enable = true;
-#  services.nginx.enable = true;
+  services.nginx.enable = true;
 #  services.phpfpm.enable = true;
 #  services.mariadb.enable = true; # Needed for Seafile
 
-  # === FIX: Configure Jellyfin Directly (Standard Port) ===
-#  services.jellyfin = {
-#    enable = true;
-#    port = 8096; # Explicitly set default port
-#    openFirewall = true;
-#  };
+  # === Configure Jellyfin Using Official Module ===
+  services.jellyfin = {
+    enable = true;
+    openFirewall = true;
+  };
 
   # --- Enable All Services ---
   services.paas.traefik.enable = true;
@@ -98,63 +97,101 @@
 #  services.paas.vikunja.enable = true;
 
 #  # === Authelia Configuration ===
-#  # Moved from the module file to the host file
-#  services.authelia.settings = {
-#    server.port = 9091;
-#    server.host = "0.0.0.0";
-#    log.level = "debug";
+#  # Basic configuration for Authelia - customize as needed
+#  services.authelia.instances.settings = {
+#    theme = "light";
 #
-#    # Use filesystem for session storage (simpler for WSL)
-#    session.storage = "filesystem";
-#    session.path = "/var/lib/authelia/session";
+##    server.address = "tcp://:9091/";
 #
-#    # Placeholder: You MUST replace these with real secrets, preferably via sops-nix
-#    jwt_secret = "CHANGE_ME_INSECURE_SECRET_!!!!!!!!!!!!";
-#    session.secret = "CHANGE_ME_INSECURE_SECRET_!!!!!!!!!!!";
+##    log.level = "info";
 #
-#    # Use a file-based backend for users
-#    authentication_backend.file = {
-#      path = "/etc/authelia/users_database.yml";
-#      password = {
-#        algorithm = "argon2id";
-#        iterations = 1;
-#        salt_length = 16;
-#        key_length = 32;
-#        memory = 1024;
-#        parallelism = 8;
+#    # IMPORTANT: These are insecure placeholders. Replace with real secrets!
+#    # Use sops-nix or another secret management solution in production
+##    jwt_secret = "INSECURE_JWT_SECRET_CHANGE_ME_PLEASE_!!!!!!!!!!!!!!!!!!";
+##    default_redirection_url = "http://localhost:8088"; # Homer dashboard
+#
+#    totp.issuer = "authelia.com";
+#
+##    authentication_backend.file = {
+##      path = "/var/lib/authelia/users_database.yml";
+##      password = {
+##        algorithm = "argon2id";
+##        iterations = 1;
+##        salt_length = 16;
+##        parallelism = 8;
+##        memory = 1024;
+##        key_length = 32;
+##      };
+##    };
+#
+##    access_control = {
+##      default_policy = "bypass"; # Allow all by default for initial setup
+##      rules = [];
+##    };
+#
+#    session = {
+#      name = "authelia_session";
+#      secret = "INSECURE_SESSION_SECRET_CHANGE_ME_PLEASE_!!!!!!!!!!!!";
+#      expiration = "1h";
+#      inactivity = "5m";
+#      domain = "localhost"; # Change to your domain
+#
+#      redis = {
+#        host = "127.0.0.1";
+#        port = 6379;
 #      };
 #    };
 #
-#    # Deny all access by default
-#    access_control = {
-#      default_policy = "deny";
-#      rules = [
-#        # Add rules here to allow access, e.g.:
-#        # { domain = [ "vaultwarden.your.domain" ]; policy = "two_factor"; }
-#      ];
-#    };
-#  };
+#    storage.local.path = "/var/lib/authelia/db.sqlite3";
 #
-#  # Create a default user database for Authelia
-#  # You MUST generate a real password hash using:
-#  # authelia hash-password 'your-strong-password'
-#  environment.etc."authelia/users_database.yml".text = ''
-#    users:
-#      ${username}: # Use the username from specialArgs
-#        displayname: "WSL User"
-#        # PASTE YOUR HASH HERE
-#        password: "$argon2id$v=19$m=65536,t=3,p=4$YOUR_SALT_HERE$YOUR_HASH_HERE"
-#        email: user@example.com
-#        groups:
-#          - admins
-#  '';
+##    notifier.filesystem.filename = "/var/lib/authelia/notification.txt";
+#  };
 
+  services.authelia.instances = {
+    main = {
+      enable = true;
+      secrets.storageEncryptionKeyFile = "/etc/authelia/storageEncryptionKeyFile";
+      secrets.jwtSecretFile = "/etc/authelia/jwtSecretFile";
+      settings = {
+        theme = "light";
+        default_2fa_method = "totp";
+        log.level = "debug";
+        server.disable_healthcheck = true;
+      };
+    };
+    preprod = {
+      enable = false;
+      secrets.storageEncryptionKeyFile = "/mnt/pre-prod/authelia/storageEncryptionKeyFile";
+      secrets.jwtSecretFile = "/mnt/pre-prod/jwtSecretFile";
+      settings = {
+        theme = "dark";
+        default_2fa_method = "webauthn";
+        server.host = "0.0.0.0";
+      };
+    };
+    test.enable = true;
+    test.secrets.manual = true;
+    test.settings.theme = "grey";
+    test.settings.server.disable_healthcheck = true;
+    test.settingsFiles = [ "/mnt/test/authelia" "/mnt/test-authelia.conf" ];
+    };
+
+
+  # Create a test user for Authelia
+  # Generate password hash with: nix-shell -p authelia --run "authelia crypto hash generate argon2 --password 'yourpassword'"
+  environment.etc."authelia/users_database.yml".text = ''
+    users:
+      admin:
+        displayname: "Administrator"
+        password: "$argon2id$v=19$m=65536,t=3,p=4$BpLnfgDsc2WD8F2q$o/vzA4myCqZZ36bUGsDY//8mKUYNZZaR0t1MFFSs+iM"
+        email: admin@localhost
+        groups:
+          - admins
+  '';
 
   # --- Firewall ---
   # Enable the firewall. All modules will add their own ports.
   networking.firewall.enable = true;
-
-  services.nginx.enable = lib.mkForce false;
 
 
   system.stateVersion = "25.05"; # Match your flake.nix

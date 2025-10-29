@@ -118,7 +118,7 @@ fi
 # ========= Authentication & SSO =========
 print_section "Authentication & Single Sign-On"
 
-AUTHELIA_STATUS=$(get_service_status "authelia-main")
+AUTHELIA_STATUS=$(get_service_status "authelia")
 if [[ "$AUTHELIA_STATUS" != "not-installed" ]]; then
   AUTHELIA_PORT=$(check_port_listening 9091 && echo "9091" || echo "")
   AUTHELIA_URL="http://${HOSTNAME}:${AUTHELIA_PORT:-9091}"
@@ -288,11 +288,11 @@ fi
 # ========= Dashboard =========
 print_section "Dashboard & Monitoring"
 
-HOMER_STATUS=$(get_service_status "homer")
-if [[ "$HOMER_STATUS" != "not-installed" ]]; then
-  HOMER_PORT=$(check_port_listening 8080 && echo "8080" || echo "")
-  HOMER_URL="http://${HOSTNAME}:${HOMER_PORT:-8080}"
-  print_service "Homer" "$HOMER_STATUS" "${HOMER_PORT:-8080}" "$HOMER_URL" "Application dashboard"
+HOMER_STATUS=$(get_service_status "nginx")
+if [[ "$HOMER_STATUS" != "not-installed" ]] && check_port_listening 8088; then
+  HOMER_PORT="8088"
+  HOMER_URL="http://${HOSTNAME}:${HOMER_PORT}"
+  print_service "Homer" "$HOMER_STATUS" "${HOMER_PORT}" "$HOMER_URL" "Application dashboard (via nginx)"
 else
   print_service "Homer" "not-installed" "" "" ""
 fi
