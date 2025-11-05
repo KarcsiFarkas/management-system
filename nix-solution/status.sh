@@ -72,12 +72,15 @@ check_port_listening() {
 clear
 print_header "NixOS PaaS Installation Status Report"
 
+# --- Use networking.domain from NixOS config if possible ---
+BASE_DOMAIN=$(nixos-option networking.domain 2>/dev/null | grep -oP '(?<=").*(?=")' | head -n1 || echo "wsl.local")
 HOSTNAME=$(get_hostname_or_ip)
 CURRENT_USER=$(whoami)
 NIXOS_VERSION=$(nixos-version 2>/dev/null || echo "unknown")
 
 echo -e "${BOLD}System Information:${NC}"
 echo -e "  Hostname:     ${GREEN}$HOSTNAME${NC}"
+echo -e "  Base Domain:  ${GREEN}$BASE_DOMAIN${NC}"
 echo -e "  User:         ${GREEN}$CURRENT_USER${NC}"
 echo -e "  NixOS:        ${GREEN}$NIXOS_VERSION${NC}"
 echo -e "  Date:         ${GREEN}$(date '+%Y-%m-%d %H:%M:%S')${NC}"
@@ -108,7 +111,7 @@ if [[ "$TRAEFIK_STATUS" != "not-installed" ]]; then
   TRAEFIK_DASH=$(check_port_listening 8080 && echo "8080" || echo "")
 
   TRAEFIK_PORTS="HTTP:${TRAEFIK_HTTP:-off} HTTPS:${TRAEFIK_HTTPS:-off} Dashboard:${TRAEFIK_DASH:-off}"
-  TRAEFIK_URL="http://${HOSTNAME}:${TRAEFIK_DASH:-8080}/dashboard/"
+  TRAEFIK_URL="http://traefik.${BASE_DOMAIN}:${TRAEFIK_DASH:-8080}/dashboard/"
 
   print_service "Traefik" "$TRAEFIK_STATUS" "$TRAEFIK_PORTS" "$TRAEFIK_URL" "Reverse proxy & SSL termination"
 else
@@ -121,8 +124,8 @@ print_section "Authentication & Single Sign-On"
 AUTHELIA_STATUS=$(get_service_status "authelia")
 if [[ "$AUTHELIA_STATUS" != "not-installed" ]]; then
   AUTHELIA_PORT=$(check_port_listening 9091 && echo "9091" || echo "")
-  AUTHELIA_URL="http://${HOSTNAME}:${AUTHELIA_PORT:-9091}"
-  print_service "Authelia" "$AUTHELIA_STATUS" "${AUTHELIA_PORT:-9091}" "$AUTHELIA_URL" "2FA & SSO authentication"
+  AUTHELIA_URL="http://authelia.${BASE_DOMAIN}"
+  print_service "Authelia" "$AUTHELIA_STATUS" "Internal:${AUTHELIA_PORT:-9091}" "$AUTHELIA_URL" "2FA & SSO authentication"
 else
   print_service "Authelia" "not-installed" "" "" ""
 fi
@@ -144,8 +147,8 @@ JELLYFIN_STATUS=$(get_service_status "jellyfin")
 if [[ "$JELLYFIN_STATUS" != "not-installed" ]]; then
   JELLYFIN_HTTP=$(check_port_listening 8096 && echo "8096" || echo "")
   JELLYFIN_HTTPS=$(check_port_listening 8920 && echo "8920" || echo "")
-  JELLYFIN_URL="http://${HOSTNAME}:${JELLYFIN_HTTP:-8096}"
-  print_service "Jellyfin" "$JELLYFIN_STATUS" "HTTP:${JELLYFIN_HTTP:-8096} HTTPS:${JELLYFIN_HTTPS:-8920}" "$JELLYFIN_URL" "Media streaming server"
+  JELLYFIN_URL="http://jellyfin.${BASE_DOMAIN}"
+  print_service "Jellyfin" "$JELLYFIN_STATUS" "Internal:${JELLYFIN_HTTP:-8096}" "$JELLYFIN_URL" "Media streaming server"
 else
   print_service "Jellyfin" "not-installed" "" "" ""
 fi
@@ -153,8 +156,8 @@ fi
 NAVIDROME_STATUS=$(get_service_status "navidrome")
 if [[ "$NAVIDROME_STATUS" != "not-installed" ]]; then
   NAVIDROME_PORT=$(check_port_listening 4533 && echo "4533" || echo "")
-  NAVIDROME_URL="http://${HOSTNAME}:${NAVIDROME_PORT:-4533}"
-  print_service "Navidrome" "$NAVIDROME_STATUS" "${NAVIDROME_PORT:-4533}" "$NAVIDROME_URL" "Music streaming server"
+  NAVIDROME_URL="http://navidrome.${BASE_DOMAIN}"
+  print_service "Navidrome" "$NAVIDROME_STATUS" "Internal:${NAVIDROME_PORT:-4533}" "$NAVIDROME_URL" "Music streaming server"
 else
   print_service "Navidrome" "not-installed" "" "" ""
 fi
@@ -164,9 +167,9 @@ print_section "Cloud Storage & File Sync"
 
 NEXTCLOUD_STATUS=$(get_service_status "phpfpm-nextcloud")
 if [[ "$NEXTCLOUD_STATUS" != "not-installed" ]]; then
-  NEXTCLOUD_PORT=$(check_port_listening 80 && echo "80" || echo "")
-  NEXTCLOUD_URL="http://${HOSTNAME}:${NEXTCLOUD_PORT:-80}"
-  print_service "Nextcloud" "$NEXTCLOUD_STATUS" "${NEXTCLOUD_PORT:-80}" "$NEXTCLOUD_URL" "File sync & collaboration"
+  NEXTCLOUD_PORT=$(check_port_listening 9001 && echo "9001" || echo "")
+  NEXTCLOUD_URL="http://nextcloud.${BASE_DOMAIN}"
+  print_service "Nextcloud" "$NEXTCLOUD_STATUS" "Internal:${NEXTCLOUD_PORT:-9001}" "$NEXTCLOUD_URL" "File sync & collaboration"
 else
   print_service "Nextcloud" "not-installed" "" "" ""
 fi
@@ -174,8 +177,8 @@ fi
 SEAFILE_STATUS=$(get_service_status "seafile")
 if [[ "$SEAFILE_STATUS" != "not-installed" ]]; then
   SEAFILE_PORT=$(check_port_listening 8000 && echo "8000" || echo "")
-  SEAFILE_URL="http://${HOSTNAME}:${SEAFILE_PORT:-8000}"
-  print_service "Seafile" "$SEAFILE_STATUS" "${SEAFILE_PORT:-8000}" "$SEAFILE_URL" "File sync & sharing"
+  SEAFILE_URL="http://seafile.${BASE_DOMAIN}"
+  print_service "Seafile" "$SEAFILE_STATUS" "Internal:${SEAFILE_PORT:-8000}" "$SEAFILE_URL" "File sync & sharing"
 else
   print_service "Seafile" "not-installed" "" "" ""
 fi
@@ -197,8 +200,8 @@ VAULTWARDEN_STATUS=$(get_service_status "vaultwarden")
 if [[ "$VAULTWARDEN_STATUS" != "not-installed" ]]; then
   VAULTWARDEN_HTTP=$(check_port_listening 8222 && echo "8222" || echo "")
   VAULTWARDEN_WS=$(check_port_listening 3012 && echo "3012" || echo "")
-  VAULTWARDEN_URL="http://${HOSTNAME}:${VAULTWARDEN_HTTP:-8222}"
-  print_service "Vaultwarden" "$VAULTWARDEN_STATUS" "HTTP:${VAULTWARDEN_HTTP:-8222} WS:${VAULTWARDEN_WS:-3012}" "$VAULTWARDEN_URL" "Bitwarden-compatible password manager"
+  VAULTWARDEN_URL="http://vaultwarden.${BASE_DOMAIN}"
+  print_service "Vaultwarden" "$VAULTWARDEN_STATUS" "Internal:${VAULTWARDEN_HTTP:-8222}" "$VAULTWARDEN_URL" "Bitwarden-compatible password manager"
 else
   print_service "Vaultwarden" "not-installed" "" "" ""
 fi
@@ -210,8 +213,8 @@ GITEA_STATUS=$(get_service_status "gitea")
 if [[ "$GITEA_STATUS" != "not-installed" ]]; then
   GITEA_HTTP=$(check_port_listening 3000 && echo "3000" || echo "")
   GITEA_SSH=$(check_port_listening 2222 && echo "2222" || echo "")
-  GITEA_URL="http://${HOSTNAME}:${GITEA_HTTP:-3000}"
-  print_service "Gitea" "$GITEA_STATUS" "HTTP:${GITEA_HTTP:-3000} SSH:${GITEA_SSH:-2222}" "$GITEA_URL" "Self-hosted Git service"
+  GITEA_URL="http://gitea.${BASE_DOMAIN}"
+  print_service "Gitea" "$GITEA_STATUS" "Internal:${GITEA_HTTP:-3000} SSH:${GITEA_SSH:-2222}" "$GITEA_URL" "Self-hosted Git service"
 else
   print_service "Gitea" "not-installed" "" "" ""
 fi
@@ -231,8 +234,8 @@ print_section "Download & Media Management"
 SONARR_STATUS=$(get_service_status "sonarr")
 if [[ "$SONARR_STATUS" != "not-installed" ]]; then
   SONARR_PORT=$(check_port_listening 8989 && echo "8989" || echo "")
-  SONARR_URL="http://${HOSTNAME}:${SONARR_PORT:-8989}"
-  print_service "Sonarr" "$SONARR_STATUS" "${SONARR_PORT:-8989}" "$SONARR_URL" "TV show management"
+  SONARR_URL="http://sonarr.${BASE_DOMAIN}"
+  print_service "Sonarr" "$SONARR_STATUS" "Internal:${SONARR_PORT:-8989}" "$SONARR_URL" "TV show management"
 else
   print_service "Sonarr" "not-installed" "" "" ""
 fi
@@ -240,8 +243,8 @@ fi
 RADARR_STATUS=$(get_service_status "radarr")
 if [[ "$RADARR_STATUS" != "not-installed" ]]; then
   RADARR_PORT=$(check_port_listening 7878 && echo "7878" || echo "")
-  RADARR_URL="http://${HOSTNAME}:${RADARR_PORT:-7878}"
-  print_service "Radarr" "$RADARR_STATUS" "${RADARR_PORT:-7878}" "$RADARR_URL" "Movie management"
+  RADARR_URL="http://radarr.${BASE_DOMAIN}"
+  print_service "Radarr" "$RADARR_STATUS" "Internal:${RADARR_PORT:-7878}" "$RADARR_URL" "Movie management"
 else
   print_service "Radarr" "not-installed" "" "" ""
 fi
@@ -249,8 +252,8 @@ fi
 QBITTORRENT_STATUS=$(get_service_status "qbittorrent")
 if [[ "$QBITTORRENT_STATUS" != "not-installed" ]]; then
   QBITTORRENT_PORT=$(check_port_listening 8080 && echo "8080" || echo "")
-  QBITTORRENT_URL="http://${HOSTNAME}:${QBITTORRENT_PORT:-8080}"
-  print_service "qBittorrent" "$QBITTORRENT_STATUS" "${QBITTORRENT_PORT:-8080}" "$QBITTORRENT_URL" "BitTorrent client"
+  QBITTORRENT_URL="http://qbittorrent.${BASE_DOMAIN}"
+  print_service "qBittorrent" "$QBITTORRENT_STATUS" "Internal:${QBITTORRENT_PORT:-8080}" "$QBITTORRENT_URL" "BitTorrent client"
 else
   print_service "qBittorrent" "not-installed" "" "" ""
 fi
@@ -261,26 +264,26 @@ print_section "Productivity & Organization"
 VIKUNJA_STATUS=$(get_service_status "vikunja")
 if [[ "$VIKUNJA_STATUS" != "not-installed" ]]; then
   VIKUNJA_PORT=$(check_port_listening 3456 && echo "3456" || echo "")
-  VIKUNJA_URL="http://${HOSTNAME}:${VIKUNJA_PORT:-3456}"
-  print_service "Vikunja" "$VIKUNJA_STATUS" "${VIKUNJA_PORT:-3456}" "$VIKUNJA_URL" "Todo & project management"
+  VIKUNJA_URL="http://vikunja.${BASE_DOMAIN}"
+  print_service "Vikunja" "$VIKUNJA_STATUS" "Internal:${VIKUNJA_PORT:-3456}" "$VIKUNJA_URL" "Todo & project management"
 else
   print_service "Vikunja" "not-installed" "" "" ""
 fi
 
 FRESHRSS_STATUS=$(get_service_status "freshrss")
 if [[ "$FRESHRSS_STATUS" != "not-installed" ]]; then
-  FRESHRSS_PORT=$(check_port_listening 80 && echo "80" || echo "")
-  FRESHRSS_URL="http://${HOSTNAME}:${FRESHRSS_PORT:-80}/freshrss"
-  print_service "FreshRSS" "$FRESHRSS_STATUS" "${FRESHRSS_PORT:-80}" "$FRESHRSS_URL" "RSS feed aggregator"
+  FRESHRSS_PORT=$(check_port_listening 8083 && echo "8083" || echo "")
+  FRESHRSS_URL="http://freshrss.${BASE_DOMAIN}"
+  print_service "FreshRSS" "$FRESHRSS_STATUS" "Internal:${FRESHRSS_PORT:-8083}" "$FRESHRSS_URL" "RSS feed aggregator"
 else
   print_service "FreshRSS" "not-installed" "" "" ""
 fi
 
 FIREFLY_STATUS=$(get_service_status "firefly-iii")
 if [[ "$FIREFLY_STATUS" != "not-installed" ]]; then
-  FIREFLY_PORT=$(check_port_listening 8080 && echo "8080" || echo "")
-  FIREFLY_URL="http://${HOSTNAME}:${FIREFLY_PORT:-8080}"
-  print_service "Firefly III" "$FIREFLY_STATUS" "${FIREFLY_PORT:-8080}" "$FIREFLY_URL" "Personal finance manager"
+  FIREFLY_PORT=$(check_port_listening 8084 && echo "8084" || echo "")
+  FIREFLY_URL="http://firefly.${BASE_DOMAIN}"
+  print_service "Firefly III" "$FIREFLY_STATUS" "Internal:${FIREFLY_PORT:-8084}" "$FIREFLY_URL" "Personal finance manager"
 else
   print_service "Firefly III" "not-installed" "" "" ""
 fi
@@ -291,8 +294,8 @@ print_section "Dashboard & Monitoring"
 HOMER_STATUS=$(get_service_status "nginx")
 if [[ "$HOMER_STATUS" != "not-installed" ]] && check_port_listening 8088; then
   HOMER_PORT="8088"
-  HOMER_URL="http://${HOSTNAME}:${HOMER_PORT}"
-  print_service "Homer" "$HOMER_STATUS" "${HOMER_PORT}" "$HOMER_URL" "Application dashboard (via nginx)"
+  HOMER_URL="http://homer.${BASE_DOMAIN}"
+  print_service "Homer" "$HOMER_STATUS" "Internal:${HOMER_PORT}" "$HOMER_URL" "Application dashboard (via nginx)"
 else
   print_service "Homer" "not-installed" "" "" ""
 fi
@@ -300,8 +303,8 @@ fi
 IMMICH_STATUS=$(get_service_status "immich")
 if [[ "$IMMICH_STATUS" != "not-installed" ]]; then
   IMMICH_PORT=$(check_port_listening 2283 && echo "2283" || echo "")
-  IMMICH_URL="http://${HOSTNAME}:${IMMICH_PORT:-2283}"
-  print_service "Immich" "$IMMICH_STATUS" "${IMMICH_PORT:-2283}" "$IMMICH_URL" "Photo & video backup"
+  IMMICH_URL="http://immich.${BASE_DOMAIN}"
+  print_service "Immich" "$IMMICH_STATUS" "Internal:${IMMICH_PORT:-2283}" "$IMMICH_URL" "Photo & video backup"
 else
   print_service "Immich" "not-installed" "" "" ""
 fi
@@ -376,19 +379,34 @@ ${BOLD}Common Services:${NC}
 
 EOF
 
-# Collect all active web services
+# Collect all active web services USING TRAEFIK DOMAINS
 declare -A WEB_SERVICES
-[[ "$TRAEFIK_STATUS" == "active" ]] && WEB_SERVICES["Traefik Dashboard"]="http://${HOSTNAME}:8080/dashboard/"
-[[ "$JELLYFIN_STATUS" == "active" ]] && WEB_SERVICES["Jellyfin"]="http://${HOSTNAME}:8096"
-[[ "$VAULTWARDEN_STATUS" == "active" ]] && WEB_SERVICES["Vaultwarden"]="http://${HOSTNAME}:8222"
-[[ "$NEXTCLOUD_STATUS" == "active" ]] && WEB_SERVICES["Nextcloud"]="http://${HOSTNAME}"
-[[ "$AUTHELIA_STATUS" == "active" ]] && WEB_SERVICES["Authelia"]="http://${HOSTNAME}:9091"
+[[ "$TRAEFIK_STATUS" == "active" ]] && WEB_SERVICES["Traefik Dashboard"]="http://traefik.${BASE_DOMAIN}:8080/dashboard/"
+[[ "$JELLYFIN_STATUS" == "active" ]] && WEB_SERVICES["Jellyfin"]="http://jellyfin.${BASE_DOMAIN}"
+[[ "$VAULTWARDEN_STATUS" == "active" ]] && WEB_SERVICES["Vaultwarden"]="http://vaultwarden.${BASE_DOMAIN}"
+[[ "$NEXTCLOUD_STATUS" == "active" ]] && WEB_SERVICES["Nextcloud"]="http://nextcloud.${BASE_DOMAIN}"
+[[ "$AUTHELIA_STATUS" == "active" ]] && WEB_SERVICES["Authelia"]="http://authelia.${BASE_DOMAIN}"
 [[ "$LLDAP_STATUS" == "active" ]] && WEB_SERVICES["LLDAP"]="http://${HOSTNAME}:17170"
+[[ "$NAVIDROME_STATUS" == "active" ]] && WEB_SERVICES["Navidrome"]="http://navidrome.${BASE_DOMAIN}"
+[[ "$SEAFILE_STATUS" == "active" ]] && WEB_SERVICES["Seafile"]="http://seafile.${BASE_DOMAIN}"
+[[ "$SYNCTHING_STATUS" == "active" ]] && WEB_SERVICES["Syncthing"]="http://${HOSTNAME}:8384"
+[[ "$GITEA_STATUS" == "active" ]] && WEB_SERVICES["Gitea"]="http://gitea.${BASE_DOMAIN}"
+[[ "$SONARR_STATUS" == "active" ]] && WEB_SERVICES["Sonarr"]="http://sonarr.${BASE_DOMAIN}"
+[[ "$RADARR_STATUS" == "active" ]] && WEB_SERVICES["Radarr"]="http://radarr.${BASE_DOMAIN}"
+[[ "$QBITTORRENT_STATUS" == "active" ]] && WEB_SERVICES["qBittorrent"]="http://qbittorrent.${BASE_DOMAIN}"
+[[ "$VIKUNJA_STATUS" == "active" ]] && WEB_SERVICES["Vikunja"]="http://vikunja.${BASE_DOMAIN}"
+[[ "$FRESHRSS_STATUS" == "active" ]] && WEB_SERVICES["FreshRSS"]="http://freshrss.${BASE_DOMAIN}"
+[[ "$FIREFLY_STATUS" == "active" ]] && WEB_SERVICES["Firefly III"]="http://firefly.${BASE_DOMAIN}"
+[[ "$HOMER_STATUS" == "active" ]] && WEB_SERVICES["Homer"]="http://homer.${BASE_DOMAIN}"
+[[ "$IMMICH_STATUS" == "active" ]] && WEB_SERVICES["Immich"]="http://immich.${BASE_DOMAIN}"
 
 if [[ ${#WEB_SERVICES[@]} -gt 0 ]]; then
-  echo -e "${BOLD}Active Web Interfaces:${NC}"
-  for service in "${!WEB_SERVICES[@]}"; do
-    echo -e "  ${CYAN}${service}:${NC} ${WEB_SERVICES[$service]}"
+  echo -e "${BOLD}Active Web Interfaces (via Traefik):${NC}"
+  # Sort keys for consistent output
+  mapfile -t sorted_keys < <(printf "%s\n" "${!WEB_SERVICES[@]}" | sort)
+  for service in "${sorted_keys[@]}"; do
+    # Simple alignment
+    printf "  %-20s %s\n" "${CYAN}${service}:${NC}" "${WEB_SERVICES[$service]}"
   done
 fi
 

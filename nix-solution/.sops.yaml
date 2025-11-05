@@ -1,0 +1,6 @@
+# nix-solution/.sops.yaml
+creation_rules:
+  - path_regex: secrets/.*$ # Encrypt everything under secrets/
+    key_groups:
+      - age:
+          - age1dngm4smyhlnnk2l0zpfjpahlsgj5w2rv5hscchh4z68z6ptay5qq9kwusg
