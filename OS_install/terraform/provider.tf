@@ -1,20 +1,22 @@
-# Proxmox provider configuration
-# Authentication is done via PROXMOX_VE_API_TOKEN environment variable
-
-provider "proxmox" {
-  endpoint = var.proxmox_endpoint
-  insecure = true  # Set to false if you have valid SSL certificates
-
-  # API token authentication (recommended)
-  # Set environment variable: export PROXMOX_VE_API_TOKEN="user@pve!tokenid=secret"
-  # The token is automatically picked up from the environment
-
-  # Optional: SSH configuration for certain operations
-  ssh {
-    agent    = true
-    username = "root"
+terraform {
+  required_version = ">= 1.3"
+  required_providers {
+    proxmox = {
+      source  = "Telmate/proxmox"
+      version = "~> 2.9"
+    }
   }
+}
 
-  # Optional: Timeout configurations
-  timeout = 600  # 10 minutes for API operations
+# Proxmox Telmate provider configuration
+# Authentication is recommended via environment variables:
+#   PM_API_URL            = "https://pve:8006/api2/json"
+#   PM_API_TOKEN_ID       = "user@pve!token-name"
+#   PM_API_TOKEN_SECRET   = "<secret>"
+#   PM_TLS_INSECURE       = "true" | "false"
+# You may also pass pm_api_url/pm_tls_insecure via variables; secrets should remain in env.
+provider "proxmox" {
+  # Prefer env vars; allow override via variables for pm_api_url/tls policy
+  pm_api_url     = coalesce(var.pm_api_url, var.proxmox_endpoint)
+  pm_tls_insecure = var.pm_tls_insecure
 }

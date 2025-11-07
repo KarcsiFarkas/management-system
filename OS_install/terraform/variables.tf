@@ -1,9 +1,23 @@
-# Root-level variables.nix that provision.py will populate via terraform.tfvars.json
+# Root-level variables that provision.py will populate via terraform.tfvars.json
 
-variable "proxmox_endpoint" {
-  description = "Proxmox VE API endpoint URL"
+# New Telmate provider inputs (with backward-compatibility alias)
+variable "pm_api_url" {
+  description = "Proxmox VE API endpoint URL (Telmate provider)"
   type        = string
-  # Example: "https://192.168.1.111:8006/api2/json"
+  default     = null
+}
+
+# Backwards-compatibility for old configs; used as fallback if pm_api_url is null
+variable "proxmox_endpoint" {
+  description = "[Deprecated] Proxmox VE API endpoint URL (legacy)"
+  type        = string
+  default     = null
+}
+
+variable "pm_tls_insecure" {
+  description = "Allow self-signed TLS certificates for Proxmox API"
+  type        = bool
+  default     = true
 }
 
 variable "vm_name" {
@@ -71,14 +85,28 @@ variable "vm_dns" {
 }
 
 variable "ssh_key" {
-  description = "SSH public key for ubuntu user authentication"
+  description = "SSH public key for default user authentication"
   type        = string
   default     = ""
   sensitive   = true
 }
 
 variable "vm_username" {
-  description = "The username for the default cloud-init user."
+  description = "The username for the default cloud-init user (Ubuntu module)."
   type        = string
   default     = "ubuntu"
+}
+
+# Ubuntu module specific
+variable "ubuntu_template" {
+  description = "Template name or VMID to clone for Ubuntu cloud-init base (e.g., 9000)"
+  type        = string
+  default     = "9000"
+}
+
+# NixOS module specific
+variable "nixos_template" {
+  description = "Template name or VMID to clone for NixOS base (e.g., 9100)"
+  type        = string
+  default     = "9100"
 }

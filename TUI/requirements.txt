@@ -1,0 +1,34 @@
+# TUI Application Dependencies
+# Production-ready versions pinned for stability
+
+# Core TUI Framework
+textual==0.47.1
+textual-dev==1.4.0
+
+# YAML parsing (same as provision.py)
+pyyaml==6.0.1
+
+# Data validation (same as provision.py)
+pydantic==2.5.3
+
+# Rich text and formatting
+rich==13.7.0
+
+# Async utilities
+
+# Configuration management
+python-dotenv==1.0.0
+
+# Date/time utilities
+python-dateutil==2.8.2
+
+# Process management
+psutil==5.9.6
+
+# Development dependencies (optional)
+# Uncomment for development
+# pytest==7.4.3
+# pytest-asyncio==0.21.1
+# black==23.12.1
+# ruff==0.1.9
+# mypy==1.7.1

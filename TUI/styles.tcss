@@ -1,0 +1,689 @@
+/* ============================================================================
+   Management System TUI - Global Styles
+   ============================================================================
+
+   This stylesheet defines the visual appearance of the TUI application.
+   Based on Textual CSS syntax with custom variables and responsive design.
+   ============================================================================ */
+
+/* ============================================================================
+   CSS Variables (Theme Colors)
+   ============================================================================ */
+
+/* Dark theme variables (TCSS syntax) */
+$background: #1e1e1e;
+$surface: #252525;
+$panel: #2d2d2d;
+
+$foreground: #d4d4d4;
+$muted: #888888;
+$subtle: #404040;
+
+$primary: #4fc3f7;
+$secondary: #81c784;
+$accent: #ffb74d;
+
+$success: #66bb6a;
+$warning: #ff9800;
+$error: #f44336;
+$info: #2196f3;
+
+$border: #404040;
+$border-active: #4fc3f7;
+$shadow: #00000080;
+
+
+/* ============================================================================
+   Screen and Layout
+   ============================================================================ */
+
+Screen {
+    background: $background;
+    color: $foreground;
+    overflow-y: auto;
+}
+
+/* Main container */
+Container {
+    background: $surface;
+    border: solid $border;
+    padding: 1 2;
+}
+
+/* Scrollable containers */
+.scrollable {
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-gutter: stable;
+}
+
+
+/* ============================================================================
+   Header and Footer
+   ============================================================================ */
+
+Header {
+    dock: top;
+    height: 3;
+    background: $panel;
+    color: $foreground;
+    content-align: center middle;
+}
+
+Header .title {
+    color: $primary;
+    text-style: bold;
+}
+
+Header .clock {
+    dock: right;
+    padding: 0 2;
+    color: $muted;
+}
+
+Footer {
+    dock: bottom;
+    height: 1;
+    background: $panel;
+    color: $muted;
+}
+
+Footer .footer--key {
+    background: $primary;
+    color: $background;
+    text-style: bold;
+}
+
+Footer .footer--description {
+    color: $foreground;
+}
+
+
+/* ============================================================================
+   Common Widgets
+   ============================================================================ */
+
+/* Buttons */
+Button {
+    min-width: 16;
+    height: 3;
+    background: $surface;
+    color: $foreground;
+    border: solid $border;
+    content-align: center middle;
+    text-style: bold;
+}
+
+Button:hover {
+    background: $panel;
+    border: solid $border-active;
+}
+
+Button:focus {
+    background: $panel;
+    border: solid $border-active;
+    color: $primary;
+}
+
+Button.-primary {
+    background: $primary;
+    color: $background;
+    border: solid $primary;
+}
+
+Button.-primary:hover {
+    background: $accent;
+    border: solid $accent;
+}
+
+Button.-success {
+    background: $success;
+    color: $background;
+    border: solid $success;
+}
+
+Button.-warning {
+    background: $warning;
+    color: $background;
+    border: solid $warning;
+}
+
+Button.-error {
+    background: $error;
+    color: $background;
+    border: solid $error;
+}
+
+/* Input fields */
+Input {
+    border: solid $border;
+    background: $surface;
+    color: $foreground;
+    padding: 0 1;
+}
+
+Input:focus {
+    border: solid $border-active;
+    background: $panel;
+}
+
+/* Lists */
+ListView {
+    background: $surface;
+    border: solid $border;
+}
+
+ListItem {
+    padding: 1 2;
+    background: $surface;
+    color: $foreground;
+}
+
+ListItem:hover {
+    background: $panel;
+}
+
+ListItem.-highlighted {
+    background: $accent;
+    color: $background;
+    text-style: bold;
+}
+
+/* Labels */
+Label {
+    color: $foreground;
+    padding: 0 1;
+}
+
+Label.-muted {
+    color: $muted;
+}
+
+Label.-primary {
+    color: $primary;
+    text-style: bold;
+}
+
+Label.-success {
+    color: $success;
+}
+
+Label.-warning {
+    color: $warning;
+}
+
+Label.-error {
+    color: $error;
+}
+
+
+/* ============================================================================
+   Dashboard Screen
+   ============================================================================ */
+
+#dashboard {
+    layout: grid;
+    grid-size: 2 3;
+    grid-gutter: 1 2;
+    padding: 2;
+}
+
+.dashboard-panel {
+    height: 100%;
+    border: solid $border;
+    background: $surface;
+    padding: 1 2;
+}
+
+.dashboard-panel:hover {
+    border: solid $border-active;
+}
+
+.dashboard-panel .title {
+    color: $primary;
+    text-style: bold;
+    padding-bottom: 1;
+}
+
+.dashboard-stat {
+    layout: horizontal;
+    height: 3;
+    padding: 1 0;
+}
+
+.dashboard-stat .label {
+    width: 1fr;
+    color: $muted;
+}
+
+.dashboard-stat .value {
+    width: 1fr;
+    text-align: right;
+    color: $foreground;
+    text-style: bold;
+}
+
+.quick-action-button {
+    margin: 1 0;
+    width: 100%;
+}
+
+
+/* ============================================================================
+   Deployment Screen
+   ============================================================================ */
+
+#deployment-screen {
+    layout: grid;
+    grid-size: 2 1;
+    grid-gutter: 2;
+}
+
+.deployment-config {
+    border: solid $border;
+    padding: 2;
+}
+
+.deployment-progress {
+    border: solid $border;
+    padding: 2;
+}
+
+.deployment-option {
+    height: 3;
+    margin: 1 0;
+}
+
+/* Progress indicators */
+ProgressBar {
+    background: $surface;
+    border: none;
+    /* bar-color not supported in Textual 0.47.1; intended bar color: $primary */
+}
+
+ProgressBar.-success {
+    /* bar-color not supported in Textual 0.47.1; intended bar color: $success */
+}
+
+ProgressBar.-error {
+    /* bar-color not supported in Textual 0.47.1; intended bar color: $error */
+}
+
+/* Status badges */
+.status-badge {
+    width: auto;
+    height: 1;
+    padding: 0 2;
+    /* border-radius not supported in Textual 0.47.1; intended radius: 2 */
+    content-align: center middle;
+    text-style: bold;
+}
+
+.status-badge.-success {
+    background: $success;
+    color: $background;
+}
+
+.status-badge.-running {
+    background: $info;
+    color: $background;
+}
+
+.status-badge.-failed {
+    background: $error;
+    color: $background;
+}
+
+.status-badge.-pending {
+    background: $muted;
+    color: $background;
+}
+
+
+/* ============================================================================
+   Log Viewer Screen
+   ============================================================================ */
+
+#log-viewer {
+    layout: vertical;
+}
+
+.log-header {
+    dock: top;
+    height: 3;
+    background: $panel;
+    padding: 0 2;
+    layout: horizontal;
+}
+
+.log-content {
+    height: 1fr;
+    border: solid $border;
+    background: $surface;
+    padding: 1;
+    overflow-y: auto;
+}
+
+.log-line {
+    color: $foreground;
+}
+
+.log-line.-error {
+    color: $error;
+    text-style: bold;
+}
+
+.log-line.-warning {
+    color: $warning;
+}
+
+.log-line.-success {
+    color: $success;
+}
+
+.log-line.-info {
+    color: $info;
+}
+
+.log-line.-muted {
+    color: $muted;
+}
+
+.log-filter-input {
+    width: 1fr;
+    margin-left: 2;
+}
+
+
+/* ============================================================================
+   Help Screen
+   ============================================================================ */
+
+#help-screen {
+    layout: vertical;
+    padding: 2;
+}
+
+.help-section {
+    border: solid $border;
+    padding: 2;
+    margin-bottom: 1;
+}
+
+.help-title {
+    color: $primary;
+    text-style: bold;
+    padding-bottom: 1;
+}
+
+.keybinding-table {
+    layout: grid;
+    grid-size: 2;
+    grid-gutter: 1 4;
+}
+
+.keybinding-key {
+    color: $accent;
+    text-style: bold;
+}
+
+.keybinding-desc {
+    color: $foreground;
+}
+
+
+/* ============================================================================
+   Command Palette
+   ============================================================================ */
+
+#command-palette {
+    align: center middle;
+    width: 60;
+    height: auto;
+    max-height: 20;
+    background: $panel;
+    border: solid $border-active;
+    padding: 1;
+}
+
+.command-palette-input {
+    dock: top;
+    margin-bottom: 1;
+}
+
+.command-list {
+    height: 1fr;
+    min-height: 10;
+}
+
+.command-item {
+    height: 3;
+    padding: 1 2;
+}
+
+.command-item:hover {
+    background: $surface;
+}
+
+.command-item .command-name {
+    color: $primary;
+    text-style: bold;
+}
+
+.command-item .command-description {
+    color: $muted;
+}
+
+
+/* ============================================================================
+   Confirmation Dialog
+   ============================================================================ */
+
+#confirmation-dialog {
+    align: center middle;
+    width: 50;
+    height: auto;
+    background: $panel;
+    border: solid $error;
+    padding: 2;
+}
+
+.dialog-message {
+    color: $foreground;
+    padding: 1 0;
+    content-align: center middle;
+}
+
+.dialog-buttons {
+    layout: horizontal;
+    height: 3;
+    padding-top: 1;
+    align: center middle;
+}
+
+.dialog-buttons Button {
+    margin: 0 1;
+}
+
+
+/* ============================================================================
+   Profile Selector
+   ============================================================================ */
+
+.profile-list {
+    height: 1fr;
+    border: solid $border;
+}
+
+.profile-item {
+    height: 4;
+    padding: 1 2;
+    layout: horizontal;
+}
+
+.profile-item:hover {
+    background: $panel;
+    border-left: thick $primary;
+}
+
+.profile-item.-selected {
+    background: $panel;
+    border-left: thick $accent;
+}
+
+.profile-name {
+    width: 1fr;
+    color: $foreground;
+    text-style: bold;
+}
+
+.profile-status {
+    width: auto;
+    padding-left: 2;
+    color: $muted;
+}
+
+
+/* ============================================================================
+   Service Selection Grid
+   ============================================================================ */
+
+.service-grid {
+    layout: grid;
+    grid-size: 3;
+    grid-gutter: 1 2;
+}
+
+.service-card {
+    height: 6;
+    border: solid $border;
+    background: $surface;
+    padding: 1;
+}
+
+.service-card:hover {
+    border: solid $border-active;
+    background: $panel;
+}
+
+.service-card.-enabled {
+    border: solid $success;
+}
+
+.service-card .service-name {
+    color: $primary;
+    text-style: bold;
+}
+
+.service-card .service-status {
+    color: $muted;
+}
+
+
+/* ============================================================================
+   Responsive Design
+   ============================================================================ */
+
+/* Compact mode for smaller terminals */
+/* Responsive rules disabled: Textual 0.47.1 lacks @media support.
+   Original intended rules for width <= 80:
+   #dashboard { grid-size: 1 6; }
+   .service-grid { grid-size: 2; }
+*/
+
+/* Responsive rules disabled: Textual 0.47.1 lacks @media support.
+   Original intended rules for width <= 60:
+   #dashboard { grid-size: 1 6; }
+   .service-grid { grid-size: 1; }
+   #command-palette { width: 90%; }
+*/
+
+
+/* ============================================================================
+   Vim Mode Indicators
+   ============================================================================ */
+
+.vim-mode-indicator {
+    /* absolute positioning not supported in Textual 0.47.1; intended: bottom-right overlay */
+    align: right bottom;
+    margin-right: 2;
+    width: auto;
+    height: 1;
+    background: $primary;
+    color: $background;
+    padding: 0 1;
+    text-style: bold;
+}
+
+.vim-mode-indicator.-normal {
+    background: $primary;
+}
+
+.vim-mode-indicator.-insert {
+    background: $success;
+}
+
+.vim-mode-indicator.-visual {
+    background: $accent;
+}
+
+
+/* ============================================================================
+   Animations and Transitions
+   ============================================================================ */
+
+Button, ListItem, .service-card {
+    transition: background 200ms, border 200ms;
+}
+
+/* Transitions for ProgressBar bar color disabled: Textual 0.47.1 lacks bar-color support */
+/* ProgressBar { transition: bar-color 300ms; } */
+
+
+/* ============================================================================
+   Utility Classes
+   ============================================================================ */
+
+.hidden {
+    display: none;
+}
+
+.bold {
+    text-style: bold;
+}
+
+.italic {
+    text-style: italic;
+}
+
+.underline {
+    text-style: underline;
+}
+
+.center {
+    content-align: center middle;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.text-left {
+    text-align: left;
+}
+
+/* Spacing utilities */
+.m-0 { margin: 0; }
+.m-1 { margin: 1; }
+.m-2 { margin: 2; }
+.p-0 { padding: 0; }
+.p-1 { padding: 1; }
+.p-2 { padding: 2; }
+
+/* Width utilities */
+.w-full { width: 100%; }
+.w-auto { width: auto; }
+
+/* Height utilities */
+.h-full { height: 100%; }
+.h-auto { height: auto; }

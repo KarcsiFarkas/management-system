@@ -237,7 +237,7 @@ def load_config() -> Dict:
     if not config_path.exists():
         raise UserProvisioningError(f"Configuration file not found: {config_path}")
     
-    # Parse the .env file
+    # Parse the .env.old file
     with open(config_path, 'r') as f:
         for line in f:
             line = line.strip()

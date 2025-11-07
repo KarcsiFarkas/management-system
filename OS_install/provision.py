@@ -232,42 +232,113 @@ async def filelock(lock_path: Path):
 # ---------- Renderers ----------
 
 def render_tf_module(workdir: Path, vm: VMSpec, install: OSInstallConfig, defaults: Defaults, username_override: Optional[str] = None) -> None:
-    """Render Terraform files + tfvars with tenant SSH key and fallback password."""
-    mod_src = Path("terraform/modules/proxmox_vm")
+    """Render Terraform files + tfvars with tenant SSH key and fallback password (Telmate provider).
+
+    Creates per-host TF workdir with:
+      - provider.tf / variables.tf / outputs.tf (from repo templates)
+      - main.tf that instantiates the correct OS module as module "vm"
+      - terraform.tfvars.json with non-secret inputs (API token via env)
+    """
     root_tf_src = Path("terraform")
     tf_dir = workdir / "tf"
     ensure_empty_dir(tf_dir)
 
-    # Copy module directory and root files
-    shutil.copytree(mod_src, tf_dir / "modules" / "proxmox_vm")
-    for fname in ("main.tf", "variables.nix.tf", "provider.tf", "outputs.tf"):
-        shutil.copy(root_tf_src / fname, tf_dir / fname)
-
+    # Resolve Proxmox placement defaults
     node = (vm.proxmox or {}).get("node", "pve")
     storage = (vm.proxmox or {}).get("storage", "local-lvm")
     bridge = vm.netifs[0].bridge if vm.netifs else "vmbr0"
     vlan = vm.netifs[0].vlan if vm.netifs else None
     disk_size = vm.disks[0].size_gb if vm.disks else 20
 
+    # Network selection
     ip = install.network.address_cidr if not install.network.dhcp else "dhcp"
     gateway = install.network.gateway if not install.network.dhcp else ""
     dns = install.network.dns or ["1.1.1.1", "9.9.9.9"]
 
+    # Tenant SSH
     tenant_name = getattr(vm, "tenant", "default")
     pub_key_path = ensure_ssh_keypair(tenant_name)
     ssh_key = pub_key_path.read_text().strip()
-    tenant_password = ensure_tenant_password(tenant_name)
+    _ = ensure_tenant_password(tenant_name)  # still generated for compatibility if needed
 
+    # Provider endpoint (no secrets here)
     endpoint = str(defaults.proxmox_provider.get("pm_api_url", "")).strip()
     if not endpoint:
-        endpoint = os.environ.get("PROXMOX_VE_ENDPOINT", "")
+        # Backwards-compat for legacy env var naming
+        endpoint = os.environ.get("PM_API_URL", "") or os.environ.get("PROXMOX_VE_ENDPOINT", "")
     if not endpoint:
-        raise RuntimeError("Missing Proxmox API endpoint.")
+        raise RuntimeError("Missing Proxmox API endpoint (set defaults.proxmox_provider.pm_api_url or PM_API_URL env)")
 
-    vm_user = username_override or (install.users[0].username if install.users else "ubuntu")
+    # Module selection by OS
+    os_type = install.os
+    if os_type == "ubuntu":
+        module_name = "proxmox_ubuntu_vm"
+    elif os_type == "nixos":
+        module_name = "proxmox_nixos_vm"
+    else:
+        raise RuntimeError(f"Unsupported OS type: {os_type}")
+
+    # Copy selected module folder into tf_dir/modules/<module_name>
+    mod_src = Path(f"terraform/modules/{module_name}")
+    mod_dst = tf_dir / "modules" / module_name
+    shutil.copytree(mod_src, mod_dst)
+
+    # Copy common root templates (provider/variables/outputs)
+    for fname in ("variables.tf", "provider.tf"):
+        shutil.copy(root_tf_src / fname, tf_dir / fname)
+
+    # Generate per-host main.tf that calls module "vm"
+    os_line = ("ubuntu_template = var.ubuntu_template" if os_type == "ubuntu" else "nixos_template = var.nixos_template")
+    main_tf = (
+        "module \"vm\" {{\n"
+        "  source      = \"./modules/{module_name}\"\n\n"
+        "  vm_name      = var.vm_name\n"
+        "  vm_node      = var.vm_node\n"
+        "  vm_storage   = var.vm_storage\n"
+        "  vm_bridge    = var.vm_bridge\n"
+        "  vm_vlan      = var.vm_vlan\n"
+        "  vm_cpus      = var.vm_cpus\n"
+        "  vm_memory    = var.vm_memory\n"
+        "  vm_disk_size = var.vm_disk_size\n\n"
+        "  # Networking\n"
+        "  vm_ip      = var.vm_ip\n"
+        "  vm_gateway = var.vm_gateway\n"
+        "  vm_dns     = var.vm_dns\n\n"
+        "  # Auth/user\n"
+        "  ssh_key     = var.ssh_key\n"
+        "  vm_username = var.vm_username\n\n"
+        "  # OS-specific\n"
+        "  {os_line}\n"
+        "}}\n"
+    ).format(module_name=module_name, os_line=os_line)
+    (tf_dir / "main.tf").write_text(main_tf, encoding="utf-8")
+
+    # Root outputs proxy (so terraform output -json has vm_ip)
+    outputs_tf = (
+        "output \"vm_ip\" {\n"
+        "  description = \"VM IP address (static or dhcp-pending)\"\n"
+        "  value       = module.vm.vm_ip\n"
+        "}\n"
+    )
+    (tf_dir / "outputs.tf").write_text(outputs_tf, encoding="utf-8")
+
+    # Determine defaults for OS-specific variables
+    ubuntu_template = "9000"
+    nixos_template = "9100"
+
+    # Allow env override for NixOS template
+    if os_type == "nixos":
+        nixos_template = os.environ.get("NIXOS_TEMPLATE", nixos_template)
+
+    vm_user = username_override or (install.users[0].username if install.users else ("ubuntu" if os_type == "ubuntu" else "root"))
 
     tfvars = {
+        # Provider (keep legacy key for fallback)
+        "pm_api_url": endpoint,
         "proxmox_endpoint": endpoint,
+        "pm_tls_insecure": True,
+
+        # VM basics
         "vm_name": vm.name,
         "vm_node": node,
         "vm_storage": storage,
@@ -276,17 +347,29 @@ def render_tf_module(workdir: Path, vm: VMSpec, install: OSInstallConfig, defaul
         "vm_cpus": vm.cpus,
         "vm_memory": vm.memory_mb,
         "vm_disk_size": disk_size,
+
+        # Networking
         "vm_ip": ip,
         "vm_gateway": gateway,
         "vm_dns": dns,
+
+        # Access
         "ssh_key": ssh_key,
         "vm_username": vm_user,
-        "vm_password": tenant_password,
     }
+
+    if os_type == "ubuntu":
+        tfvars["ubuntu_template"] = ubuntu_template
+    else:
+        tfvars["nixos_template"] = nixos_template
 
     (tf_dir / "terraform.tfvars.json").write_text(json.dumps(tfvars, indent=2), encoding="utf-8")
 
     if DEBUG:
+        print("📝 Generated main.tf:")
+        print(main_tf)
+        print("📝 Generated outputs.tf:")
+        print(outputs_tf)
         print("📝 Generated terraform.tfvars.json:")
         print(json.dumps(tfvars, indent=2))
 

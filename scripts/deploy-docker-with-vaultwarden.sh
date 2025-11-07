@@ -209,7 +209,7 @@ for service in "${enabled_services[@]}"; do
 done
 
 echo "--> Step 5: Configuring services with generated passwords"
-# Append generated passwords to .env file
+# Append generated passwords to .env.old file
 cat "$TEMP_PASSWORDS_FILE" >> "$PROJECT_ROOT/docker-compose-solution/.env"
 
 echo "--> Step 6: Deploying remaining services"
