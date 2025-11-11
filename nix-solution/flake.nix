@@ -9,7 +9,7 @@
 
     # Home Manager
     home-manager = {
-      url = "github:nix-community/home-manager-example/release-25.05"; # Match nixpkgs
+      url = "github:nix-community/home-manager"; # Match nixpkgs
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -103,27 +103,27 @@
       # test = mkHost ./hosts/test/default.nix "x86_64-linux";
     };
 
-    # === Home Manager Profiles ===
-    homeConfigurations = {
-      wsl-minimal = home-manager.lib.homeManagerConfiguration {
-        pkgs = hmPkgs;
-        modules = [ ./home-manager-example/home.nix ];
-      };
-    };
+#    # === Home Manager Profiles ===
+#    homeConfigurations = {
+#      wsl-minimal = home-manager.lib.homeManagerConfiguration {
+#        pkgs = hmPkgs;
+#        modules = [ ./modules/home-manager/common.nix ];
+#      };
+#    };
 
     # === Dev Shells Output ===
-    devShells = forAllSystems (system:
-      let pkgs = nixpkgs.legacyPackages.${system};
-      in {
-        default = pkgs.mkShell {
-          packages = with pkgs; [
-            python311
-            python311Packages.pip
-            terraform
-            ansible
-            ansible-lint
-          ];
-        };
-      });
+#    devShells = forAllSystems (system:
+#      let pkgs = nixpkgs.legacyPackages.${system};
+#      in {
+#        default = pkgs.mkShell {
+#          packages = with pkgs; [
+#            python311
+#            python311Packages.pip
+#            terraform
+#            ansible
+#            ansible-lint
+#          ];
+#        };
+#      });
   };
 }

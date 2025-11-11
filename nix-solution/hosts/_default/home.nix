@@ -5,7 +5,7 @@
   # Import reusable Home Manager modules
   imports = [
     ../../modules/home-manager/common.nix
-    # ../../modules/home-manager/shell/zsh.nix # Example
+    # ../../modules/home-manager-example/shell/zsh.nix # Example
   ];
 
   # == User Specific Settings for this host ==
