@@ -11,7 +11,9 @@
   home.homeDirectory = "/home/${username}";
 
   # No host-specific packages
-  home.packages = [ ];
+  home.packages = [
+
+  ];
 
   # Host-specific git config
   programs.git = {
