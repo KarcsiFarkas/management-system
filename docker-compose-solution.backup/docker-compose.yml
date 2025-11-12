@@ -1,0 +1,736 @@
+version: '3.8'
+
+networks:
+  traefik_net:
+    external: true
+volumes:
+  # Shared media volumes for integration
+  media_data:
+  downloads_data:
+  # Database volumes
+  postgres_data:
+  mariadb_data:
+  # Service-specific volumes
+  nextcloud_data:
+  gitlab_data:
+  immich_data:
+  plex_data:
+  jellyfin_data:
+  vaultwarden_data:
+  sonarr_data:
+  radarr_data:
+  qbittorrent_data:
+  navidrome_data:
+  seafile_data:
+  syncthing_data:
+  pihole_data:
+  freshrss_data:
+  vikunja_data:
+  firefly_data:
+  homepage_data:
+  lldap_data:
+  authelia_data:
+
+services:
+  # Reverse Proxy - Always deployed
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    profiles: ["traefik"]
+    command:
+      - "--api.dashboard=true"
+      - "--api.insecure=false"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.watch=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.email=${TRAEFIK_ACME_EMAIL:-admin@${DOMAIN}}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "traefik_letsencrypt:/letsencrypt"
+      - "./traefik/dynamic:/etc/traefik/dynamic:ro"
+    networks:
+      - traefik_net
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.${DOMAIN}`)"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
+      - "traefik.http.services.traefik.loadbalancer.server.port=8080"
+
+  # Central Database Services
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    profiles: ["postgres", "database"]
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-paas_db}
+      - POSTGRES_USER=${POSTGRES_USER:-paas_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+      - POSTGRES_MULTIPLE_DATABASES=${POSTGRES_MULTIPLE_DATABASES:-nextcloud,gitlab,immich,vikunja,seafile}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh:ro
+    networks:
+      - traefik_net
+    restart: unless-stopped
+
+  mariadb:
+    image: mariadb:10.11
+    container_name: mariadb
+    profiles: ["mariadb", "database"]
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-changeme}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-paas_db}
+      - MYSQL_USER=${MYSQL_USER:-paas_user}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-changeme}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    networks:
+      - traefik_net
+    restart: unless-stopped
+
+  # LDAP Service for SSO
+  lldap:
+    image: lldap/lldap:stable
+    container_name: lldap
+    profiles: ["lldap", "auth"]
+    environment:
+      - LLDAP_JWT_SECRET=${LLDAP_JWT_SECRET:-changeme-jwt-secret}
+      - LLDAP_LDAP_USER_PASS=${LLDAP_ADMIN_PASSWORD:-changeme}
+      - LLDAP_LDAP_BASE_DN=${LDAP_BASE_DN:-dc=example,dc=local}
+    volumes:
+      - lldap_data:/data
+    networks:
+      - traefik_net
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lldap.rule=Host(`ldap.${DOMAIN}`)"
+      - "traefik.http.routers.lldap.entrypoints=websecure"
+      - "traefik.http.routers.lldap.tls.certresolver=letsencrypt"
+      - "traefik.http.services.lldap.loadbalancer.server.port=17170"
+
+  # Authelia SSO Provider
+  authelia:
+    image: authelia/authelia:latest
+    container_name: authelia
+    profiles: ["authelia", "auth"]
+    environment:
+      - AUTHELIA_JWT_SECRET=${AUTHELIA_JWT_SECRET:-changeme-jwt-secret}
+      - AUTHELIA_SESSION_SECRET=${AUTHELIA_SESSION_SECRET:-changeme-session-secret}
+      - AUTHELIA_STORAGE_ENCRYPTION_KEY=${AUTHELIA_STORAGE_ENCRYPTION_KEY:-changeme-storage-key}
+      - AUTHELIA_AUTHENTICATION_BACKEND_LDAP_URL=ldap://lldap:3890
+      - AUTHELIA_AUTHENTICATION_BACKEND_LDAP_BASE_DN=${LDAP_BASE_DN:-dc=example,dc=local}
+      - AUTHELIA_AUTHENTICATION_BACKEND_LDAP_USERNAME_ATTRIBUTE=uid
+      - AUTHELIA_AUTHENTICATION_BACKEND_LDAP_ADDITIONAL_USERS_DN=ou=people
+      - AUTHELIA_AUTHENTICATION_BACKEND_LDAP_USERS_FILTER=(&({username_attribute}={input})(objectClass=person))
+      - AUTHELIA_AUTHENTICATION_BACKEND_LDAP_ADDITIONAL_GROUPS_DN=ou=groups
+      - AUTHELIA_AUTHENTICATION_BACKEND_LDAP_GROUPS_FILTER=(member={dn})
+      - AUTHELIA_AUTHENTICATION_BACKEND_LDAP_GROUP_NAME_ATTRIBUTE=cn
+      - AUTHELIA_AUTHENTICATION_BACKEND_LDAP_USER=cn=admin,ou=people,${LDAP_BASE_DN:-dc=example,dc=local}
+      - AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD=${LLDAP_ADMIN_PASSWORD:-changeme}
+      - AUTHELIA_DEFAULT_REDIRECTION_URL=https://${DOMAIN}
+      - AUTHELIA_SESSION_DOMAIN=${DOMAIN}
+    volumes:
+      - authelia_data:/config
+      - ./authelia/configuration.yml:/config/configuration.yml:ro
+    networks:
+      - traefik_net
+    restart: unless-stopped
+    depends_on:
+      - lldap
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.authelia.rule=Host(`auth.${DOMAIN}`)"
+      - "traefik.http.routers.authelia.entrypoints=websecure"
+      - "traefik.http.routers.authelia.tls.certresolver=letsencrypt"
+      - "traefik.http.services.authelia.loadbalancer.server.port=9091"
+      - "traefik.http.middlewares.authelia.forwardauth.address=http://authelia:9091/api/verify?rd=https://auth.${DOMAIN}"
+      - "traefik.http.middlewares.authelia.forwardauth.trustForwardHeader=true"
+      - "traefik.http.middlewares.authelia.forwardauth.authResponseHeaders=Remote-User,Remote-Groups,Remote-Name,Remote-Email"
+
+  # File Sync and Storage Services
+  nextcloud:
+    image: nextcloud:28
+    container_name: nextcloud
+    profiles: ["nextcloud"]
+    environment:
+      - NEXTCLOUD_ADMIN_USER=${NEXTCLOUD_ADMIN_USER:-admin}
+      - NEXTCLOUD_ADMIN_PASSWORD=${NEXTCLOUD_ADMIN_PASSWORD:-changeme}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DB=${NEXTCLOUD_DB:-nextcloud}
+      - POSTGRES_USER=${POSTGRES_USER:-paas_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+      - NEXTCLOUD_TRUSTED_DOMAINS=nextcloud.${DOMAIN}
+      - OVERWRITEPROTOCOL=https
+      - OVERWRITEHOST=nextcloud.${DOMAIN}
+    volumes:
+      - nextcloud_data:/var/www/html
+      - ${MEDIA_ROOT:-./media}/nextcloud:/var/www/html/data/shared:rw
+    networks:
+      - traefik_net
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nextcloud.rule=Host(`nextcloud.${DOMAIN}`)"
+      - "traefik.http.routers.nextcloud.entrypoints=websecure"
+      - "traefik.http.routers.nextcloud.tls.certresolver=letsencrypt"
+      - "traefik.http.services.nextcloud.loadbalancer.server.port=80"
+      - "traefik.http.middlewares.nextcloud-caldav.redirectregex.permanent=true"
+      - "traefik.http.middlewares.nextcloud-caldav.redirectregex.regex=^https://(.*)/.well-known/(card|cal)dav"
+      - "traefik.http.middlewares.nextcloud-caldav.redirectregex.replacement=https://$${1}/remote.php/dav/"
+      - "traefik.http.routers.nextcloud.middlewares=nextcloud-caldav"
+
+  syncthing:
+    image: syncthing/syncthing:latest
+    container_name: syncthing
+    profiles: ["syncthing"]
+    environment:
+      - PUID=${SYNCTHING_PUID:-1000}
+      - PGID=${SYNCTHING_PGID:-1000}
+    volumes:
+      - syncthing_data:/var/syncthing
+      - ${MEDIA_ROOT:-./media}/syncthing:/var/syncthing/Sync:rw
+    networks:
+      - traefik_net
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.syncthing.rule=Host(`syncthing.${DOMAIN}`)"
+      - "traefik.http.routers.syncthing.entrypoints=websecure"
+      - "traefik.http.routers.syncthing.tls.certresolver=letsencrypt"
+      - "traefik.http.services.syncthing.loadbalancer.server.port=8384"
+
+  seafile:
+    image: seafileltd/seafile-mc:latest
+    container_name: seafile
+    profiles: ["seafile"]
+    environment:
+      - DB_HOST=mariadb
+      - DB_ROOT_PASSWD=${MYSQL_ROOT_PASSWORD:-changeme}
+      - SEAFILE_ADMIN_EMAIL=${SEAFILE_ADMIN_EMAIL:-admin@${DOMAIN}}
+      - SEAFILE_ADMIN_PASSWORD=${SEAFILE_ADMIN_PASSWORD:-changeme}
+      - SEAFILE_SERVER_HOSTNAME=seafile.${DOMAIN}
+      - SEAFILE_SERVER_LETSENCRYPT=false
+    volumes:
+      - seafile_data:/shared
+      - ${MEDIA_ROOT:-./media}/seafile:/shared/seafile/seafile-data:rw
+    networks:
+      - traefik_net
+    restart: unless-stopped
+    depends_on:
+      - mariadb
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.seafile.rule=Host(`seafile.${DOMAIN}`)"
+      - "traefik.http.routers.seafile.entrypoints=websecure"
+      - "traefik.http.routers.seafile.tls.certresolver=letsencrypt"
+      - "traefik.http.services.seafile.loadbalancer.server.port=80"
+
+  # Media Services
+  plex:
+    image: plexinc/pms-docker:latest
+    container_name: plex
+    profiles: ["plex"]
+    environment:
+      - PLEX_CLAIM=${PLEX_CLAIM:-}
+      - PLEX_UID=${PLEX_UID:-1000}
+      - PLEX_GID=${PLEX_GID:-1000}
+      - TZ=${TIMEZONE:-UTC}
+    volumes:
+      - plex_data:/config
+      - ${MEDIA_ROOT:-./media}/movies:/movies:ro
+      - ${MEDIA_ROOT:-./media}/tv:/tv:ro
+      - ${MEDIA_ROOT:-./media}/music:/music:ro
+    networks:
+      - traefik_net
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.plex.rule=Host(`plex.${DOMAIN}`)"
+      - "traefik.http.routers.plex.entrypoints=websecure"
+      - "traefik.http.routers.plex.tls.certresolver=letsencrypt"
+      - "traefik.http.services.plex.loadbalancer.server.port=32400"
+
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    profiles: ["jellyfin"]
+    environment:
+      - JELLYFIN_PublishedServerUrl=https://jellyfin.${DOMAIN}
+      - PUID=${JELLYFIN_PUID:-1000}
+      - PGID=${JELLYFIN_PGID:-1000}
+      - TZ=${TIMEZONE:-UTC}
+    volumes:
+      - jellyfin_data:/config
+      - ${MEDIA_ROOT:-./media}/movies:/movies:ro
+      - ${MEDIA_ROOT:-./media}/tv:/tv:ro
+      - ${MEDIA_ROOT:-./media}/music:/music:ro
+    networks:
+      - traefik_net
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.jellyfin.rule=Host(`jellyfin.${DOMAIN}`)"
+      - "traefik.http.routers.jellyfin.entrypoints=websecure"
+      - "traefik.http.routers.jellyfin.tls.certresolver=letsencrypt"
+      - "traefik.http.services.jellyfin.loadbalancer.server.port=8096"
+
+  navidrome:
+    image: deluan/navidrome:latest
+    container_name: navidrome
+    profiles: ["navidrome"]
+    environment:
+      - ND_MUSICFOLDER=${ND_MUSICFOLDER:-/music}
+      - ND_DATAFOLDER=${ND_DATAFOLDER:-/data}
+      - ND_LOGLEVEL=${ND_LOGLEVEL:-info}
+      - ND_BASEURL=https://navidrome.${DOMAIN}
+    volumes:
+      - navidrome_data:/data
+      - ${MEDIA_ROOT:-./media}/music:/music:ro
+    networks:
+      - traefik_net
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.navidrome.rule=Host(`navidrome.${DOMAIN}`)"
+      - "traefik.http.routers.navidrome.entrypoints=websecure"
+      - "traefik.http.routers.navidrome.tls.certresolver=letsencrypt"
+      - "traefik.http.services.navidrome.loadbalancer.server.port=4533"
+
+  # Media Management (*arr stack)
+  sonarr:
+    image: linuxserver/sonarr:latest
+    container_name: sonarr
+    profiles: ["sonarr"]
+    environment:
+      - PUID=${SONARR_PUID:-1000}
+      - PGID=${SONARR_PGID:-1000}
+      - TZ=${TIMEZONE:-UTC}
+    volumes:
+      - sonarr_data:/config
+      - ${MEDIA_ROOT:-./media}/tv:/tv:rw
+      - ${DOWNLOADS_ROOT:-./downloads}:/downloads:rw
+    networks:
+      - traefik_net
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.sonarr.rule=Host(`sonarr.${DOMAIN}`)"
+      - "traefik.http.routers.sonarr.entrypoints=websecure"
+      - "traefik.http.routers.sonarr.tls.certresolver=letsencrypt"
+      - "traefik.http.services.sonarr.loadbalancer.server.port=8989"
+
+  radarr:
+    image: linuxserver/radarr:latest
+    container_name: radarr
+    profiles: ["radarr"]
+    environment:
+      - PUID=${RADARR_PUID:-1000}
+      - PGID=${RADARR_PGID:-1000}
+      - TZ=${TIMEZONE:-UTC}
+    volumes:
+      - radarr_data:/config
+      - ${MEDIA_ROOT:-./media}/movies:/movies:rw
+      - ${DOWNLOADS_ROOT:-./downloads}:/downloads:rw
+    networks:
+      - traefik_net
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.radarr.rule=Host(`radarr.${DOMAIN}`)"
+      - "traefik.http.routers.radarr.entrypoints=websecure"
+      - "traefik.http.routers.radarr.tls.certresolver=letsencrypt"
+      - "traefik.http.services.radarr.loadbalancer.server.port=7878"
+
+  qbittorrent:
+    image: linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    profiles: ["qbittorrent"]
+    environment:
+      - PUID=${QBITTORRENT_PUID:-1000}
+      - PGID=${QBITTORRENT_PGID:-1000}
+      - TZ=${TIMEZONE:-UTC}
+      - WEBUI_PORT=${WEBUI_PORT:-8080}
+    volumes:
+      - qbittorrent_data:/config
+      - ${DOWNLOADS_ROOT:-./downloads}:/downloads:rw
+    networks:
+      - traefik_net
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.qbittorrent.rule=Host(`qbittorrent.${DOMAIN}`)"
+      - "traefik.http.routers.qbittorrent.entrypoints=websecure"
+      - "traefik.http.routers.qbittorrent.tls.certresolver=letsencrypt"
+      - "traefik.http.services.qbittorrent.loadbalancer.server.port=8080"
+
+  # Development and DevOps
+  gitlab:
+    image: gitlab/gitlab-ce:latest
+    container_name: gitlab
+    profiles: ["gitlab"]
+    environment:
+      - GITLAB_OMNIBUS_CONFIG=|
+          external_url 'https://gitlab.${DOMAIN}'
+          gitlab_rails['initial_root_password'] = '${GITLAB_ROOT_PASSWORD:-changeme}'
+          postgresql['enable'] = false
+          gitlab_rails['db_adapter'] = 'postgresql'
+          gitlab_rails['db_encoding'] = 'unicode'
+          gitlab_rails['db_host'] = 'postgres'
+          gitlab_rails['db_port'] = 5432
+          gitlab_rails['db_database'] = 'gitlab'
+          gitlab_rails['db_username'] = '${POSTGRES_USER:-paas_user}'
+          gitlab_rails['db_password'] = '${POSTGRES_PASSWORD:-changeme}'
+          nginx['listen_port'] = 80
+          nginx['listen_https'] = false
+          nginx['proxy_set_headers'] = {
+            "Host" => "$$http_host_with_default",
+            "X-Real-IP" => "$$remote_addr",
+            "X-Forwarded-For" => "$$proxy_add_x_forwarded_for",
+            "X-Forwarded-Proto" => "https",
+            "X-Forwarded-Ssl" => "on"
+          }
+    volumes:
+      - gitlab_data:/var/opt/gitlab
+      - ./gitlab/logs:/var/log/gitlab
+      - ./gitlab/config:/etc/gitlab
+    networks:
+      - traefik_net
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gitlab.rule=Host(`gitlab.${DOMAIN}`)"
+      - "traefik.http.routers.gitlab.entrypoints=websecure"
+      - "traefik.http.routers.gitlab.tls.certresolver=letsencrypt"
+      - "traefik.http.services.gitlab.loadbalancer.server.port=80"
+
+  # Security and Password Management
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    profiles: ["vaultwarden"]
+    environment:
+      - DOMAIN=https://vaultwarden.${DOMAIN}
+      - ADMIN_TOKEN=${VAULTWARDEN_ADMIN_TOKEN:-}
+      - WEBSOCKET_ENABLED=${WEBSOCKET_ENABLED:-true}
+      - SIGNUPS_ALLOWED=${SIGNUPS_ALLOWED:-true}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-paas_user}:${POSTGRES_PASSWORD:-changeme}@postgres/vaultwarden
+    volumes:
+      - vaultwarden_data:/data
+    networks:
+      - traefik_net
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.vaultwarden.rule=Host(`vaultwarden.${DOMAIN}`)"
+      - "traefik.http.routers.vaultwarden.entrypoints=websecure"
+      - "traefik.http.routers.vaultwarden.tls.certresolver=letsencrypt"
+      - "traefik.http.services.vaultwarden.loadbalancer.server.port=80"
+
+  # Photo Management
+  immich:
+    image: ghcr.io/immich-app/immich-server:release
+    container_name: immich
+    profiles: ["immich"]
+    environment:
+      - DB_HOSTNAME=postgres
+      - DB_USERNAME=${POSTGRES_USER:-paas_user}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+      - DB_DATABASE_NAME=immich
+      - REDIS_HOSTNAME=redis
+      - UPLOAD_LOCATION=${UPLOAD_LOCATION:-./library}
+    volumes:
+      - immich_data:/usr/src/app/upload
+      - ${MEDIA_ROOT:-./media}/immich:/usr/src/app/upload/library:rw
+    networks:
+      - traefik_net
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.immich.rule=Host(`immich.${DOMAIN}`)"
+      - "traefik.http.routers.immich.entrypoints=websecure"
+      - "traefik.http.routers.immich.tls.certresolver=letsencrypt"
+      - "traefik.http.services.immich.loadbalancer.server.port=3001"
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    profiles: ["redis", "immich"]
+    networks:
+      - traefik_net
+    restart: unless-stopped
+
+  # Network Services
+  pihole:
+    image: pihole/pihole:latest
+    container_name: pihole
+    profiles: ["pihole"]
+    environment:
+      - TZ=${TIMEZONE:-UTC}
+      - WEBPASSWORD=${WEBPASSWORD:-}
+      - DNS1=${DNS1:-8.8.8.8}
+      - DNS2=${DNS2:-8.8.4.4}
+      - VIRTUAL_HOST=pihole.${DOMAIN}
+    volumes:
+      - pihole_data:/etc/pihole
+      - ./pihole/dnsmasq.d:/etc/dnsmasq.d
+    networks:
+      - traefik_net
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pihole.rule=Host(`pihole.${DOMAIN}`)"
+      - "traefik.http.routers.pihole.entrypoints=websecure"
+      - "traefik.http.routers.pihole.tls.certresolver=letsencrypt"
+      - "traefik.http.services.pihole.loadbalancer.server.port=80"
+
+  # RSS and News
+  freshrss:
+    image: freshrss/freshrss:latest
+    container_name: freshrss
+    profiles: ["freshrss"]
+    environment:
+      - CRON_MIN=${CRON_MIN:-1,31}
+      - TZ=${TIMEZONE:-UTC}
+      - PUID=${FRESHRSS_PUID:-1000}
+      - PGID=${FRESHRSS_PGID:-1000}
+    volumes:
+      - freshrss_data:/var/www/FreshRSS/data
+    networks:
+      - traefik_net
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.freshrss.rule=Host(`freshrss.${DOMAIN}`)"
+      - "traefik.http.routers.freshrss.entrypoints=websecure"
+      - "traefik.http.routers.freshrss.tls.certresolver=letsencrypt"
+      - "traefik.http.services.freshrss.loadbalancer.server.port=80"
+
+  # Task Management
+  vikunja:
+    image: vikunja/vikunja:latest
+    container_name: vikunja
+    profiles: ["vikunja"]
+    environment:
+      - VIKUNJA_DATABASE_TYPE=postgres
+      - VIKUNJA_DATABASE_HOST=postgres
+      - VIKUNJA_DATABASE_USER=${POSTGRES_USER:-paas_user}
+      - VIKUNJA_DATABASE_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+      - VIKUNJA_DATABASE_DATABASE=vikunja
+      - VIKUNJA_SERVICE_JWTSECRET=${VIKUNJA_SERVICE_JWTSECRET:-changeme-jwt-secret}
+      - VIKUNJA_SERVICE_FRONTENDURL=https://vikunja.${DOMAIN}
+    volumes:
+      - vikunja_data:/app/vikunja/files
+    networks:
+      - traefik_net
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.vikunja.rule=Host(`vikunja.${DOMAIN}`)"
+      - "traefik.http.routers.vikunja.entrypoints=websecure"
+      - "traefik.http.routers.vikunja.tls.certresolver=letsencrypt"
+      - "traefik.http.services.vikunja.loadbalancer.server.port=3456"
+
+  # Finance Management
+  firefly-iii:
+    image: fireflyiii/core:latest
+    container_name: firefly-iii.nix
+    profiles: ["firefly-iii.nix"]
+    environment:
+      - APP_KEY=${APP_KEY:-changeme-32-character-key-here}
+      - DB_CONNECTION=pgsql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=firefly
+      - DB_USERNAME=${POSTGRES_USER:-paas_user}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+      - APP_URL=https://firefly.${DOMAIN}
+      - TRUSTED_PROXIES=**
+    volumes:
+      - firefly_data:/var/www/html/storage/upload
+    networks:
+      - traefik_net
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.firefly.rule=Host(`firefly.${DOMAIN}`)"
+      - "traefik.http.routers.firefly.entrypoints=websecure"
+      - "traefik.http.routers.firefly.tls.certresolver=letsencrypt"
+      - "traefik.http.services.firefly.loadbalancer.server.port=8080"
+
+  # Dashboard
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    profiles: ["homepage"]
+    environment:
+      - PUID=${HOMEPAGE_PUID:-1000}
+      - PGID=${HOMEPAGE_PGID:-1000}
+    volumes:
+      - homepage_data:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - traefik_net
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.homepage.rule=Host(`dashboard.${DOMAIN}`)"
+      - "traefik.http.routers.homepage.entrypoints=websecure"
+      - "traefik.http.routers.homepage.tls.certresolver=letsencrypt"
+      - "traefik.http.services.homepage.loadbalancer.server.port=3000"
+
+  # PDF Tools
+  stirling-pdf:
+    image: frooodle/s-pdf:latest
+    container_name: stirling-pdf
+    profiles: ["stirling-pdf"]
+    environment:
+      - DOCKER_ENABLE_SECURITY=${DOCKER_ENABLE_SECURITY:-false}
+      - INSTALL_BOOK_AND_ADVANCED_HTML_OPS=${INSTALL_BOOK_AND_ADVANCED_HTML_OPS:-false}
+    networks:
+      - traefik_net
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.stirling-pdf.rule=Host(`pdf.${DOMAIN}`)"
+      - "traefik.http.routers.stirling-pdf.entrypoints=websecure"
+      - "traefik.http.routers.stirling-pdf.tls.certresolver=letsencrypt"
+      - "traefik.http.services.stirling-pdf.loadbalancer.server.port=8080"
+
+  # YouTube Downloader
+  youtubedl-material:
+    image: tzahi12345/youtubedl-material:latest
+    container_name: youtubedl-material
+    profiles: ["youtubedl-material"]
+    environment:
+      - PUID=${YTDL_PUID:-1000}
+      - PGID=${YTDL_PGID:-1000}
+      - ytdl_mongodb_connection_string=${ytdl_mongodb_connection_string:-mongodb://ytdl-mongo-db:27017}
+    volumes:
+      - ./youtubedl/appdata:/app/appdata
+      - ./youtubedl/audio:/app/audio
+      - ./youtubedl/video:/app/video
+      - ./youtubedl/subscriptions:/app/subscriptions
+      - ./youtubedl/users:/app/users
+    networks:
+      - traefik_net
+    restart: unless-stopped
+    depends_on:
+      - ytdl-mongo-db
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.youtubedl.rule=Host(`youtube.${DOMAIN}`)"
+      - "traefik.http.routers.youtubedl.entrypoints=websecure"
+      - "traefik.http.routers.youtubedl.tls.certresolver=letsencrypt"
+      - "traefik.http.services.youtubedl.loadbalancer.server.port=17442"
+
+  ytdl-mongo-db:
+    image: mongo:4
+    container_name: ytdl-mongo-db
+    profiles: ["youtubedl-material"]
+    volumes:
+      - ./youtubedl/db:/data/db
+    networks:
+      - traefik_net
+    restart: unless-stopped
+
+  # Fitness Tracker
+  fittracker:
+    image: samr1/fittrackee:latest
+    container_name: fittracker
+    profiles: ["fittracker"]
+    environment:
+      - PUID=${FITTRACKER_PUID:-1000}
+      - PGID=${FITTRACKER_PGID:-1000}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-paas_user}:${POSTGRES_PASSWORD:-changeme}@postgres/fittracker
+      - APP_SETTINGS=fittrackee.config.ProductionConfig
+      - FLASK_APP=fittrackee
+    volumes:
+      - ./fittracker/data:/usr/src/app/fittrackee/uploads
+    networks:
+      - traefik_net
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.fittracker.rule=Host(`fitness.${DOMAIN}`)"
+      - "traefik.http.routers.fittracker.entrypoints=websecure"
+      - "traefik.http.routers.fittracker.tls.certresolver=letsencrypt"
+      - "traefik.http.services.fittracker.loadbalancer.server.port=5000"
+
+  # Gamified Task Manager
+  habitica:
+    image: habitrpg/habitica:latest
+    container_name: habitica
+    profiles: ["habitica"]
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@${DOMAIN}}
+      - BASE_URL=https://habitica.${DOMAIN}
+      - DATABASE_URL=mongodb://habitica-mongo:27017/habitrpg
+    networks:
+      - traefik_net
+    restart: unless-stopped
+    depends_on:
+      - habitica-mongo
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.habitica.rule=Host(`habitica.${DOMAIN}`)"
+      - "traefik.http.routers.habitica.entrypoints=websecure"
+      - "traefik.http.routers.habitica.tls.certresolver=letsencrypt"
+      - "traefik.http.services.habitica.loadbalancer.server.port=3000"
+
+  habitica-mongo:
+    image: mongo:4.4
+    container_name: habitica-mongo
+    profiles: ["habitica"]
+    volumes:
+      - ./habitica/db:/data/db
+    networks:
+      - traefik_net
+    restart: unless-stopped
+
+  # VPN Server
+  openvpn:
+    image: kylemanna/openvpn:latest
+    container_name: openvpn
+    profiles: ["openvpn"]
+    environment:
+      - OVPN_DATA=${OVPN_DATA:-ovpn-data-example}
+    volumes:
+      - ./openvpn:/etc/openvpn
+    ports:
+      - "1194:1194/udp"
+    cap_add:
+      - NET_ADMIN
+    networks:
+      - traefik_net
+    restart: unless-stopped
+
+volumes:
+  traefik_letsencrypt:

@@ -89,3 +89,9 @@ variable "vm_username" {
   type        = string
   default     = "test"
 }
+
+variable "ubuntu_template" {
+  description = "VM ID of the Ubuntu Cloud-Init template to clone"
+  type        = number
+  default     = 9000
+}

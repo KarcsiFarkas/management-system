@@ -13,10 +13,8 @@ def get_repo():
     if not os.path.isdir(CONFIG_REPO_PATH):
         raise FileNotFoundError(
             f"Configuration repository not found at: {CONFIG_REPO_PATH}. Set the CONFIG_REPO_PATH environment variable.")
-    if not os.path.isdir(os.path.join(CONFIG_REPO_PATH, '.git')):
-        raise git.InvalidGitRepositoryError(f"The path '{CONFIG_REPO_PATH}' is not a valid Git repository.")
 
-    repo = git.Repo(CONFIG_REPO_PATH)
+    repo = git.Repo(CONFIG_REPO_PATH, search_parent_directories=True)
 
     if 'main' in repo.heads:
         if repo.head.ref != repo.heads.main:

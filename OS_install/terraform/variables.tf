@@ -106,7 +106,7 @@ variable "ubuntu_template" {
 
 # NixOS module specific
 variable "nixos_template" {
-  description = "Template name or VMID to clone for NixOS base (e.g., 9100)"
+  description = "Template name or VMID to clone for NixOS base (e.g., 8000)"
   type        = string
-  default     = "9100"
+  default     = "8000"
 }

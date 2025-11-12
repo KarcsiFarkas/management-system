@@ -1,0 +1,82 @@
+---
+###############################################################
+#                   Authelia configuration                    #
+###############################################################
+
+server:
+  host: 0.0.0.0
+  port: 9091
+
+log:
+  level: info
+
+# The secret used to generate JWT tokens when validating user identity by email confirmation.
+jwt_secret: changeme-jwt-secret
+
+# Default redirection URL
+default_redirection_url: https://example.local
+
+totp:
+  issuer: authelia.com
+
+# Authentication backend configuration
+authentication_backend:
+  # LDAP backend configuration
+  ldap:
+    implementation: custom
+    url: ldap://lldap:3890
+    timeout: 5s
+    start_tls: false
+    tls:
+      skip_verify: false
+      minimum_version: TLS1.2
+    base_dn: dc=example,dc=local
+    username_attribute: uid
+    additional_users_dn: ou=people
+    users_filter: "(&({username_attribute}={input})(objectClass=person))"
+    additional_groups_dn: ou=groups
+    groups_filter: "(member={dn})"
+    group_name_attribute: cn
+    mail_attribute: mail
+    display_name_attribute: displayName
+    user: cn=admin,ou=people,dc=example,dc=local
+    password: changeme
+
+# Access Control Configuration
+access_control:
+  default_policy: deny
+  rules:
+    # Rules applied to everyone
+    - domain: auth.example.local
+      policy: bypass
+    - domain: "*.example.local"
+      policy: one_factor
+
+# Session Provider Configuration
+session:
+  name: authelia_session
+  domain: example.local  # Should match whatever your root protected domain is
+  same_site: lax
+  secret: changeme-session-secret
+  expiration: 1h
+  inactivity: 5m
+  remember_me_duration: 1M
+
+# Regulation Configuration
+regulation:
+  max_retries: 3
+  find_time: 120
+  ban_time: 300
+
+# Storage Provider Configuration
+storage:
+  encryption_key: changeme-storage-key
+  local:
+    path: /config/db.sqlite3
+
+# Notification Provider
+notifier:
+  # You can disable the notifier startup check by setting this to true.
+  disable_startup_check: false
+  filesystem:
+    filename: /config/notification.txt

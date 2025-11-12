@@ -10,6 +10,7 @@ resource "random_password" "vm_password" {
 # Pre-encode the DNS list for the template
 locals {
   vm_dns_json = jsonencode(var.vm_dns)
+  is_dhcp     = var.vm_ip == "dhcp"
 }
 
 # Cloud-init user-data snippet for QEMU agent installation
@@ -94,15 +95,35 @@ resource "proxmox_virtual_environment_vm" "ubuntu_server" {
     firewall = false
   }
 
-  #
-  # --- THIS IS THE CRITICAL FIX ---
-  # This block must be empty except for these lines.
-  #
   initialization {
     type         = "nocloud"
     datastore_id = var.vm_storage
     interface    = "ide2"
-   user_account {
+
+    dynamic "ip_config" {
+      for_each = local.is_dhcp ? [1] : []
+      content {
+        ipv4 {
+          address = "dhcp"
+        }
+      }
+    }
+
+    dynamic "ip_config" {
+      for_each = local.is_dhcp ? [] : [1]
+      content {
+        ipv4 {
+          address = var.vm_ip
+          gateway = var.vm_gateway
+        }
+      }
+    }
+
+    dns {
+      servers = var.vm_dns
+    }
+
+    user_account {
       username = var.vm_username
       password = ""
       keys     = [var.ssh_key]

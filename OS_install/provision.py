@@ -272,7 +272,7 @@ def render_tf_module(workdir: Path, vm: VMSpec, install: OSInstallConfig, defaul
     # Module selection by OS
     os_type = install.os
     if os_type == "ubuntu":
-        module_name = "proxmox_ubuntu_vm"
+        module_name = "proxmox_vm"
     elif os_type == "nixos":
         module_name = "proxmox_nixos_vm"
     else:
@@ -323,8 +323,8 @@ def render_tf_module(workdir: Path, vm: VMSpec, install: OSInstallConfig, defaul
     (tf_dir / "outputs.tf").write_text(outputs_tf, encoding="utf-8")
 
     # Determine defaults for OS-specific variables
-    ubuntu_template = "9000"
-    nixos_template = "9100"
+    ubuntu_template = str(defaults.proxmox_provider.get("ubuntu_template", "9000"))
+    nixos_template = str(defaults.proxmox_provider.get("nixos_template", "9100"))
 
     # Allow env override for NixOS template
     if os_type == "nixos":
@@ -381,6 +381,7 @@ def render_ansible_inventory(workdir: Path, vm: VMSpec, install: OSInstallConfig
 
     tenant_name = getattr(vm, "tenant", "default")
     pub_key_path = ensure_ssh_keypair(tenant_name)
+    priv_key_path = pub_key_path.with_suffix("")
     pub_key = pub_key_path.read_text().strip()
     tenant_password = ensure_tenant_password(tenant_name)
 
@@ -397,6 +398,7 @@ def render_ansible_inventory(workdir: Path, vm: VMSpec, install: OSInstallConfig
     host_vars = {
         "ansible_user": ans_user,
         "ansible_password": tenant_password,
+        "ansible_ssh_private_key_file": str(priv_key_path),
         "network": install.network.model_dump(),
         "packages": install.packages,
         "docker_enabled": install.docker,
@@ -496,7 +498,7 @@ async def terraform_apply(tf_dir: Path, max_retries: int = 2) -> dict[str, Any]:
 
     return {}  # Should not be reached
 
-async def check_vm_health(vm_ip: str, vm_name: str, ssh_user: str, timeout: int = 300) -> bool:
+async def check_vm_health(vm_ip: str, vm_name: str, ssh_user: str, timeout: int = 300, identity_file: Optional[Path] = None) -> bool:
     """
     Check if VM is healthy and cloud-init has completed.
 
@@ -512,12 +514,19 @@ async def check_vm_health(vm_ip: str, vm_name: str, ssh_user: str, timeout: int 
 
     while (asyncio.get_event_loop().time() - start_time) < timeout:
         try:
-            # Check SSH connectivity
-            proc = await asyncio.create_subprocess_exec(
+            base_cmd = [
                 "ssh",
                 "-o", "StrictHostKeyChecking=no",
                 "-o", "UserKnownHostsFile=/dev/null",
                 "-o", "ConnectTimeout=5",
+                "-o", "BatchMode=yes",
+            ]
+            if identity_file:
+                base_cmd += ["-i", str(identity_file)]
+
+            # Check SSH connectivity
+            proc = await asyncio.create_subprocess_exec(
+                *base_cmd,
                 f"{ssh_user}@{vm_ip}",
                 "echo 'SSH OK'",
                 stdout=asyncio.subprocess.PIPE,
@@ -530,9 +539,7 @@ async def check_vm_health(vm_ip: str, vm_name: str, ssh_user: str, timeout: int 
 
                 # Check cloud-init status
                 proc = await asyncio.create_subprocess_exec(
-                    "ssh",
-                    "-o", "StrictHostKeyChecking=no",
-                    "-o", "UserKnownHostsFile=/dev/null",
+                    *base_cmd,
                     f"{ssh_user}@{vm_ip}",
                     "cloud-init status --wait || cloud-init status",
                     stdout=asyncio.subprocess.PIPE,
@@ -577,6 +584,10 @@ async def provision_host(
     """Enhanced provision_host with health checks and robust build dir creation."""
     host_dir = root_build / vm.name
     lock_path = host_dir.with_suffix(".lock")
+    tenant_name = getattr(vm, "tenant", "default")
+    tenant_key_path = TENANTS_DIR / tenant_name / "id_ed25519"
+    if not tenant_key_path.exists():
+        ensure_ssh_keypair(tenant_name)
 
     # Lock to prevent concurrent manipulation of the same host dir
     async with filelock(lock_path):
@@ -617,7 +628,13 @@ async def provision_host(
                     if vm_ip_for_tasks:
                         print("... giving VM 30s to boot before health check ...")
                         await asyncio.sleep(30)
-                        healthy = await check_vm_health(vm_ip_for_tasks, vm.name, ssh_user, timeout=300)
+                        healthy = await check_vm_health(
+                            vm_ip_for_tasks,
+                            vm.name,
+                            ssh_user,
+                            timeout=300,
+                            identity_file=tenant_key_path,
+                        )
                         if not healthy:
                             print(f"⚠️  Warning: VM {vm.name} may not be fully ready")
 

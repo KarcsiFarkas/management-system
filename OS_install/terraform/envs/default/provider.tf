@@ -11,10 +11,10 @@ terraform {
 
 # Telmate Proxmox provider (Proxmox VE 8)
 # Recommended auth via environment variables:
-#   PM_API_URL            = "https://pve:8006/api2/json"
-#   PM_API_TOKEN_ID       = "user@pve!token-name"
-#   PM_API_TOKEN_SECRET   = "<secret>"
-#   PM_TLS_INSECURE       = "true" | "false"
+#   PM_API_URL            = "https://192.168.1.111:8006/api2/json"
+#   PM_API_TOKEN_ID       = "karcsi@pam!api-token"
+#   PM_API_TOKEN_SECRET   = "9c29fcac-7b0c-4cd8-83c5-8e66fce5e26c"
+#   PM_TLS_INSECURE       = "true"
 # Optionally pass pm_api_url/pm_tls_insecure via variables; secrets must remain in env.
 provider "proxmox" {
   pm_api_url      = coalesce(var.pm_api_url, var.proxmox_endpoint)

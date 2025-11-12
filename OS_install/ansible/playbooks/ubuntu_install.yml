@@ -3,7 +3,7 @@
   hosts: ubuntu
   become: true
   vars:
-    minimal_pkgs: [vim, curl, ca-certificates, net-tools]
+    minimal_pkgs: [vim, curl, ca-certificates, net-tools, git, unzip, rsync, mosh]
   tasks:
     - name: Wait for SSH (host up)
       wait_for:
@@ -37,21 +37,34 @@
 
     - name: Configure netplan (static if requested)
       when: not network.dhcp
-      copy:
+      template:
+        src: ../templates/netplan-static.yaml.j2
         dest: /etc/netplan/01-installer-config.yaml
-        content: |
-          network:
-            version: 2
-            ethernets:
-              {{ (network.interfaces[0].bridge | default('ens18')) }}:
-                addresses: [ "{{ network.address_cidr }}" ]
-                gateway4: "{{ network.gateway }}"
-                nameservers:
-                  addresses: {{ network.dns | to_nice_yaml(indent=10) }}
+        mode: "0600"
 
     - name: Apply netplan (if changed)
       command: netplan apply
       when: not network.dhcp
+
+    - name: Ensure Chezmoi binary is installed
+      block:
+        - name: Check if Chezmoi is already present
+          stat:
+            path: /usr/local/bin/chezmoi
+          register: chezmoi_stat
+
+        - name: Install Chezmoi from official release
+          when: not chezmoi_stat.stat.exists
+          shell: |
+            set -euo pipefail
+            tmp="$(mktemp -d)"
+            trap 'rm -rf "$tmp"' EXIT
+            cd "$tmp"
+            curl -fsSL https://github.com/twpayne/chezmoi/releases/latest/download/chezmoi-linux-amd64 -o chezmoi
+            install -m 0755 chezmoi /usr/local/bin/chezmoi
+          args:
+            creates: /usr/local/bin/chezmoi
+            executable: /bin/bash
 
     - name: Install Docker (optional)
       when: docker_enabled | bool
