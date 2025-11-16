@@ -9,7 +9,7 @@
 
     # Home Manager
     home-manager = {
-      url = "github:nix-community/home-manager/release-25.05"; # Match nixpkgs
+      url = "github:nix-community/home-manager-example/release-25.05"; # Match nixpkgs
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -40,6 +40,10 @@
       # Base NixOS module with common system settings
       ./modules/nixos/base.nix
     ];
+
+    # Home Manager system defaults (used for WSL userland)
+    hmSystem = "x86_64-linux";
+    hmPkgs = nixpkgs.legacyPackages.${hmSystem};
 
     # Build NixOS system configurations
     nixosSystem = { system, hostname, username ? "nixuser", extraModules ? [], ... }:
@@ -97,6 +101,14 @@
       wsl-minimal = mkHost ./hosts/wsl-minimal/default.nix "x86_64-linux";
 
       # test = mkHost ./hosts/test/default.nix "x86_64-linux";
+    };
+
+    # === Home Manager Profiles ===
+    homeConfigurations = {
+      wsl-minimal = home-manager.lib.homeManagerConfiguration {
+        pkgs = hmPkgs;
+        modules = [ ./home-manager-example/home.nix ];
+      };
     };
 
     # === Dev Shells Output ===

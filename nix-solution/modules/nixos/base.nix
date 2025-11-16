@@ -35,7 +35,7 @@
     curl wget jq
     unzip zip
     git
-    neovim nano vim # Basic editors
+    neovim nano vim helix# Basic editors
     htop btop tree bat fd ripgrep fzf tmux zellij vifm zoxide fastfetch # Common CLI tools
     mosh # For Mosh SSH alternative
   ];
