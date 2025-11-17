@@ -4,6 +4,12 @@
   become: true
   vars:
     minimal_pkgs: [vim, curl, ca-certificates, net-tools, git, unzip, rsync, mosh]
+    chezmoi_required_packages: [python3, python3-yaml, jq, yq, tar]
+    chrony_packages: [chrony, tzdata-legacy]
+    docker_networks:
+      - name: traefik_net
+        driver: bridge
+        attachable: true
   tasks:
     - name: Wait for SSH (host up)
       wait_for:
@@ -17,13 +23,47 @@
         state: present
         update_cache: true
 
+    - name: Ensure Chezmoi helper packages are installed
+      apt:
+        name: "{{ chezmoi_required_packages }}"
+        state: present
+
+    - name: Ensure Chrony log directory exists
+      file:
+        path: /var/log/chrony
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Install Chrony time synchronization stack
+      apt:
+        name: "{{ chrony_packages }}"
+        state: present
+
+    - name: Ensure Docker group exists when Docker support is enabled
+      when: docker_enabled | bool
+      group:
+        name: docker
+        state: present
+
     - name: Ensure users and SSH keys
       loop: "{{ users }}"
       loop_control: { loop_var: u }
+      vars:
+        requested_groups: >-
+          {{
+            (
+              (u.groups | default([])) +
+              (['sudo'] if u.sudo else []) +
+              (['docker'] if docker_enabled | bool else [])
+            ) | unique
+          }}
       user:
         name: "{{ u.username }}"
         shell: "{{ u.shell | default('/bin/bash') }}"
-        groups: "{{ 'sudo' if u.sudo else omit }}"
+        groups: "{{ requested_groups | join(',') if requested_groups | length > 0 else omit }}"
+        append: true
         state: present
       register: created_users
 
@@ -69,17 +109,67 @@
     - name: Install Docker (optional)
       when: docker_enabled | bool
       block:
-        - name: Setup apt keyrings + repo
-          shell: |
-            set -e
-            install -m 0755 -d /etc/apt/keyrings
-            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-            chmod a+r /etc/apt/keyrings/docker.gpg
-            . /etc/os-release
-            echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-            ${VERSION_CODENAME} stable" > /etc/apt/sources.list.d/docker.list
+        - name: Ensure Docker apt prerequisites are installed
+          apt:
+            name:
+              - ca-certificates
+              - curl
+            state: present
+        - name: Create Docker apt keyring directory
+          file:
+            path: /etc/apt/keyrings
+            state: directory
+            mode: "0755"
+        - name: Detect dpkg architecture for Docker repo
+          command: dpkg --print-architecture
+          register: docker_dpkg_arch
+          changed_when: false
+        - name: Download Docker’s official GPG key
+          get_url:
+            url: https://download.docker.com/linux/ubuntu/gpg
+            dest: /etc/apt/keyrings/docker.asc
+            mode: "0644"
+        - name: Configure Docker apt repository
+          copy:
+            dest: /etc/apt/sources.list.d/docker.list
+            content: |
+              deb [arch={{ docker_dpkg_arch.stdout | default('amd64') }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release | default('noble') }} stable
+            owner: root
+            group: root
+            mode: "0644"
         - apt:
             update_cache: true
         - apt:
             name: [docker-ce, docker-ce-cli, containerd.io, docker-buildx-plugin, docker-compose-plugin]
             state: present
+        - name: Ensure Docker runtime config directory exists
+          file:
+            path: /etc/paas
+            state: directory
+            owner: root
+            group: root
+            mode: "0755"
+        - name: Render Docker runtime configuration
+          template:
+            src: ../templates/docker-runtime-config.yaml.j2
+            dest: /etc/paas/docker-runtime.yaml
+            owner: root
+            group: root
+            mode: "0644"
+        - name: Ensure Docker networks exist
+          shell: |
+            set -euo pipefail
+            if docker network inspect {{ item.name }} >/dev/null 2>&1; then
+              exit 0
+            fi
+            docker network create \
+              --driver {{ item.driver | default('bridge') }} \
+              {% if item.attachable | default(false) %}--attachable {% endif %}{{ item.name }}
+          args:
+            executable: /bin/bash
+          loop: "{{ docker_networks }}"
+          loop_control:
+            label: "{{ item.name }}"
+          register: docker_network_result
+          changed_when: docker_network_result.stdout != ""
+          failed_when: docker_network_result.rc not in [0]

@@ -7,6 +7,7 @@ volumes:
   # Shared media volumes for integration
   media_data:
   downloads_data:
+  traefik_letsencrypt:
   # Database volumes
   postgres_data:
   mariadb_data:
@@ -71,7 +72,17 @@ services:
   postgres:
     image: postgres:15
     container_name: postgres
-    profiles: ["postgres", "database"]
+    # Include dependent service profiles so Compose auto-enables Postgres
+    profiles:
+      - postgres
+      - database
+      - nextcloud
+      - gitlab
+      - vaultwarden
+      - immich
+      - vikunja
+      - firefly-iii.nix
+      - fittracker
     environment:
       - POSTGRES_DB=${POSTGRES_DB:-paas_db}
       - POSTGRES_USER=${POSTGRES_USER:-paas_user}
@@ -731,6 +742,3 @@ services:
     networks:
       - traefik_net
     restart: unless-stopped
-
-volumes:
-  traefik_letsencrypt:
