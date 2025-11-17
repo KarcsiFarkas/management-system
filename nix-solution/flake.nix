@@ -9,7 +9,7 @@
 
     # Home Manager
     home-manager = {
-      url = "github:nix-community/home-manager"; # Match nixpkgs
+      url = "github:nix-community/home-manager/release-25.05"; # Match nixpkgs
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -102,14 +102,6 @@
 
       # test = mkHost ./hosts/test/default.nix "x86_64-linux";
     };
-
-#    # === Home Manager Profiles ===
-#    homeConfigurations = {
-#      wsl-minimal = home-manager.lib.homeManagerConfiguration {
-#        pkgs = hmPkgs;
-#        modules = [ ./modules/home-manager/common.nix ];
-#      };
-#    };
 
     # === Dev Shells Output ===
 #    devShells = forAllSystems (system:

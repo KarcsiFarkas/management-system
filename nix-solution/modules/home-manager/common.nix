@@ -1,4 +1,4 @@
-# nix-solution/modules/home-manager/common.nix
+# nix-solution/modules/home-manager-example/common.nix
 { config, pkgs, lib, ... }:
 
 let
