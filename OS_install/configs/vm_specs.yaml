@@ -3,10 +3,10 @@ vms:
     tenant: test
     hypervisor: proxmox
     boot_method: iso       # iso | image | pxe
-    cpus: 4
-    memory_mb: 16384
+    cpus: 8
+    memory_mb: 32768
     disks:
-      - size_gb: 40
+      - size_gb: 80
         storage: local-lvm
         type: scsi
     netifs:
