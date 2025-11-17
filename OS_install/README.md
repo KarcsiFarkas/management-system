@@ -102,6 +102,10 @@ provisioning-framework/
    * **Image**: instant boot with cloud images
    * **PXE**: suitable for baremetal and network installs
 
+## Default Post-Install Tools
+
+The Ubuntu Ansible playbook provisions a baseline toolbox so freshly created hosts are immediately useful. In addition to the minimal packages, it now installs the graphical Bacula console (`bacula-console-qt`) for backup administration and the Helix editor (`helix`) for on-box editing out of the box. See `ansible/playbooks/ubuntu_install.yml` for the authoritative task list.
+
 ## Authentication
 
 - **Proxmox**: Use environment variables `PM_API_TOKEN_ID` and `PM_API_TOKEN_SECRET`

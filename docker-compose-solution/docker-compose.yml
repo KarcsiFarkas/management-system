@@ -58,6 +58,9 @@ services:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "traefik_letsencrypt:/letsencrypt"
       - "./traefik/dynamic:/etc/traefik/dynamic:ro"
+    environment:
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - DOCKER_API_VERSION=${DOCKER_API_VERSION:-1.44}
     networks:
       - traefik_net
     restart: unless-stopped

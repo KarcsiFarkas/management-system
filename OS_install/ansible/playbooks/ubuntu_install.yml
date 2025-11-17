@@ -23,6 +23,22 @@
         state: present
         update_cache: true
 
+    - name: Install Bacula console client
+      apt:
+        name: bacula-console-qt
+        state: present
+
+    - name: Add Helix editor PPA
+      apt_repository:
+        repo: ppa:maveonair/helix-editor
+        state: present
+
+    - name: Install Helix editor
+      apt:
+        name: helix
+        state: present
+        update_cache: true
+
     - name: Ensure Chezmoi helper packages are installed
       apt:
         name: "{{ chezmoi_required_packages }}"
