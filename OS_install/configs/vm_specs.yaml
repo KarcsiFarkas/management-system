@@ -3,10 +3,10 @@ vms:
     tenant: test
     hypervisor: proxmox
     boot_method: iso       # iso | image | pxe
-    cpus: 8
-    memory_mb: 32768
+    cpus: 12
+    memory_mb: 24576
     disks:
-      - size_gb: 80
+      - size_gb: 100
         storage: local-lvm
         type: scsi
     netifs:
@@ -51,8 +51,8 @@ vms:
 
   - name: nixos-vm-01  # This is your new NixOS VM
     hypervisor: proxmox
-    cpus: 4
-    memory_mb: 16384
+    cpus: 12
+    memory_mb: 24576
     disks:
       - size_gb: 100
         storage: local-lvm # Your Proxmox storage
