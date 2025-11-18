@@ -99,14 +99,14 @@ variable "vm_username" {
 
 # Ubuntu module specific
 variable "ubuntu_template" {
-  description = "Template name or VMID to clone for Ubuntu cloud-init base (e.g., 9000)"
+  description = "Template name or VMID to clone for Ubuntu cloud-init base (e.g., ubuntu-2404-template)"
   type        = string
-  default     = "9000"
+  default     = "ubuntu-2404-template"
 }
 
 # NixOS module specific
 variable "nixos_template" {
-  description = "Template name or VMID to clone for NixOS base (e.g., 8000)"
+  description = "Template name or VMID to clone for NixOS base (e.g., nixos-template-8000)"
   type        = string
-  default     = "8000"
+  default     = "nixos-template-8000"
 }

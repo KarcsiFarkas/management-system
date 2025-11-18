@@ -1,7 +1,7 @@
 # Outputs
 output "vm_id" {
   description = "Proxmox VM ID"
-  value       = proxmox_virtual_environment_vm.ubuntu_server.vm_id
+  value       = proxmox_vm_qemu.ubuntu_server.vmid
 }
 
 output "vm_ip" {
