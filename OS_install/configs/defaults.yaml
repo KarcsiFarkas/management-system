@@ -7,8 +7,8 @@ image_catalog:
 
 proxmox_provider:
   pm_api_url: "https://192.168.1.111:8006/api2/json"
-  ubuntu_template: "ubuntu-2404-template"
-  nixos_template: "nixos-template-8000"
+  ubuntu_template: 9000
+  nixos_template: 8000
   # Auth via env:
   #   PM_API_TOKEN_ID=terraform@pve!iac  PM_API_TOKEN_SECRET=...
 

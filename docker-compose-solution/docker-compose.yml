@@ -604,6 +604,7 @@ services:
     environment:
       - PUID=${HOMEPAGE_PUID:-1000}
       - PGID=${HOMEPAGE_PGID:-1000}
+      - HOMEPAGE_ALLOWED_HOSTS=${HOMEPAGE_ALLOWED_HOSTS:-dashboard.${DOMAIN},${DOMAIN},${SERVICE_HOST_HOMEPAGE:-dashboard.${DOMAIN}}}
     volumes:
       - homepage_data:/app/config
       - /var/run/docker.sock:/var/run/docker.sock:ro

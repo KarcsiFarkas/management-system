@@ -258,6 +258,7 @@ def render_tf_module(workdir: Path, vm: VMSpec, install: OSInstallConfig, defaul
     # Tenant SSH
     tenant_name = getattr(vm, "tenant", "default")
     pub_key_path = ensure_ssh_keypair(tenant_name)
+    priv_key_path = pub_key_path.with_suffix("")
     ssh_key = pub_key_path.read_text().strip()
     _ = ensure_tenant_password(tenant_name)  # still generated for compatibility if needed
 
@@ -305,8 +306,9 @@ def render_tf_module(workdir: Path, vm: VMSpec, install: OSInstallConfig, defaul
         "  vm_gateway = var.vm_gateway\n"
         "  vm_dns     = var.vm_dns\n\n"
         "  # Auth/user\n"
-        "  ssh_key     = var.ssh_key\n"
-        "  vm_username = var.vm_username\n\n"
+        "  ssh_key                       = var.ssh_key\n"
+        "  vm_username                   = var.vm_username\n"
+        "  proxmox_ssh_private_key_path  = var.proxmox_ssh_private_key_path\n\n"
         "  # OS-specific\n"
         "  {os_line}\n"
         "}}\n"
@@ -356,6 +358,7 @@ def render_tf_module(workdir: Path, vm: VMSpec, install: OSInstallConfig, defaul
         # Access
         "ssh_key": ssh_key,
         "vm_username": vm_user,
+        "proxmox_ssh_private_key_path": str(priv_key_path),
     }
 
     if os_type == "ubuntu":

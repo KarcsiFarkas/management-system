@@ -97,16 +97,21 @@ variable "vm_username" {
   default     = "ubuntu"
 }
 
+variable "proxmox_ssh_private_key_path" {
+  description = "Absolute path to the SSH private key used by the Proxmox provider for SSH operations"
+  type        = string
+}
+
 # Ubuntu module specific
 variable "ubuntu_template" {
-  description = "Template name or VMID to clone for Ubuntu cloud-init base (e.g., ubuntu-2404-template)"
-  type        = string
-  default     = "ubuntu-2404-template"
+  description = "Template VMID to clone for Ubuntu cloud-init base (e.g., 9000)"
+  type        = number
+  default     = 9000
 }
 
 # NixOS module specific
 variable "nixos_template" {
-  description = "Template name or VMID to clone for NixOS base (e.g., nixos-template-8000)"
-  type        = string
-  default     = "nixos-template-8000"
+  description = "Template VMID to clone for NixOS base (e.g., 8000)"
+  type        = number
+  default     = 8000
 }

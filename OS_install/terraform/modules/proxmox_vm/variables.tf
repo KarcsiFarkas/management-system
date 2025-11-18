@@ -90,8 +90,18 @@ variable "vm_username" {
   default     = "test"
 }
 
-variable "ubuntu_template" {
-  description = "Name or VMID of the Ubuntu Cloud-Init template to clone"
+variable "proxmox_ssh_private_key_path" {
+  description = "Absolute path to the private SSH key used for connecting to Proxmox nodes."
   type        = string
-  default     = "ubuntu-2404-template"
+
+  validation {
+    condition     = length(trimspace(var.proxmox_ssh_private_key_path)) > 0
+    error_message = "proxmox_ssh_private_key_path must be set to a valid path"
+  }
+}
+
+variable "ubuntu_template" {
+  description = "VM ID of the Ubuntu Cloud-Init template to clone"
+  type        = number
+  default     = 9000
 }

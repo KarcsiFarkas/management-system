@@ -10,6 +10,33 @@
       - name: traefik_net
         driver: bridge
         attachable: true
+    primary_user: >-
+      {{
+        (
+          users | default([])
+          | selectattr('username', 'defined')
+          | map(attribute='username')
+          | list
+          | first
+        ) | default('root')
+      }}
+    docker_runtime_root: "/srv/paas"
+    docker_media_root: "{{ docker_runtime_root }}/data"
+    docker_downloads_root: "{{ docker_runtime_root }}/downloads"
+    docker_media_subdirs_primary:
+      - syncthing
+      - seafile
+      - immich
+      - movies
+      - tv
+      - music
+      - navidrome
+      - plex
+      - jellyfin
+      - shared
+    docker_download_subdirs:
+      - qbittorrent
+      - incoming
   tasks:
     - name: Wait for SSH (host up)
       wait_for:
@@ -189,3 +216,44 @@
           register: docker_network_result
           changed_when: docker_network_result.stdout != ""
           failed_when: docker_network_result.rc not in [0]
+        - name: Ensure Docker runtime base directories exist
+          file:
+            path: "{{ item }}"
+            state: directory
+            owner: "{{ primary_user }}"
+            group: "{{ primary_user }}"
+            mode: "0755"
+          loop:
+            - "{{ docker_runtime_root }}"
+            - "{{ docker_media_root }}"
+            - "{{ docker_downloads_root }}"
+        - name: Ensure media directories exist for user-managed services
+          file:
+            path: "{{ docker_media_root }}/{{ item }}"
+            state: directory
+            owner: "{{ primary_user }}"
+            group: "{{ primary_user }}"
+            mode: "0775"
+          loop: "{{ docker_media_subdirs_primary }}"
+        - name: Ensure Nextcloud shared storage directory is writable
+          file:
+            path: "{{ docker_media_root }}/nextcloud"
+            state: directory
+            owner: "www-data"
+            group: "www-data"
+            mode: "0770"
+        - name: Ensure Gitea data directory exists
+          file:
+            path: "{{ docker_media_root }}/gitea"
+            state: directory
+            owner: "{{ primary_user }}"
+            group: "{{ primary_user }}"
+            mode: "0775"
+        - name: Ensure downloads directories exist
+          file:
+            path: "{{ docker_downloads_root }}/{{ item }}"
+            state: directory
+            owner: "{{ primary_user }}"
+            group: "{{ primary_user }}"
+            mode: "0775"
+          loop: "{{ docker_download_subdirs }}"
