@@ -233,8 +233,8 @@ in
           (lib.mkIf (isPaaSEnabled "gitea") {
             gitea.loadBalancer.servers = [{ url = "http://127.0.0.1:${toString config.services.gitea.settings.server.HTTP_PORT}"; }];
           })
-          (lib.mkIf config.services.jellyfin.enable {
-            jellyfin.loadBalancer.servers = [{ url = "http://127.0.0.1:${toString config.services.jellyfin.port}"; }];
+          (lib.mkIf (isPaaSEnabled "jellyfin") {
+            jellyfin.loadBalancer.servers = [{ url = "http://127.0.0.1:${toString (getPaaSPort "jellyfin")}"; }];
           })
           (lib.mkIf (isPaaSEnabled "homer") {
             homer.loadBalancer.servers = [{ url = "http://127.0.0.1:${toString (getPaaSPort "homer")}"; }];

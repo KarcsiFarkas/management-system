@@ -21,8 +21,7 @@
     defaultUser = username;
     startMenuLaunchers = true;
 
-    # Enable systemd
-    nativeSystemd = true;
+    # Note: nativeSystemd is now always enabled (deprecated option removed)
 
     # WSL integration
     wslConf = {
@@ -35,8 +34,11 @@
   users.users.${username} = {
     isNormalUser = true;
     extraGroups = [ "wheel" "docker" "networkmanager" ];
-    shell = pkgs.zsh;
+    shell = lib.mkForce pkgs.zsh;  # Override default bash from common/users.nix
   };
+
+  # WSL-specific: Don't require password for sudo (override common/users.nix)
+  security.sudo.wheelNeedsPassword = lib.mkForce false;
 
   # === Enable PaaS Services ===
   services.paas = {

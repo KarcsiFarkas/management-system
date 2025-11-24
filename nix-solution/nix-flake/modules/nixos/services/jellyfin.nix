@@ -51,8 +51,8 @@ in
     };
 
     # Enable hardware acceleration support
-    # Use hardware.opengl for NixOS 24.05, hardware.graphics for 24.11+
-    hardware.opengl.enable = mkDefault true;
+    # Enable hardware acceleration (renamed from hardware.opengl in NixOS 24.11+)
+    hardware.graphics.enable = mkDefault true;
 
     # Ensure Jellyfin user has access to hardware acceleration
     users.users.jellyfin = {
