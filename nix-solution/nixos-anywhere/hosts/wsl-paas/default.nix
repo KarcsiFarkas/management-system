@@ -105,6 +105,10 @@
     wget
     htop
 
+    # Terminal multiplexer and shell enhancements
+    zellij      # Modern terminal multiplexer (replaces tmux)
+    starship    # Cross-shell prompt
+
     # Docker tools
     docker-compose
 
@@ -122,7 +126,96 @@
     };
   };
 
-  # === Enable common services ===
-  programs.zsh.enable = true;
+  # === Shell Configuration ===
+  programs.zsh = {
+    enable = true;
+
+    # Enable starship prompt
+    promptInit = ''
+      eval "$(${pkgs.starship}/bin/starship init zsh)"
+    '';
+
+    shellAliases = {
+      # Zellij aliases (replaces tmux)
+      zj = "zellij";
+      zja = "zellij attach";
+      zjl = "zellij list-sessions";
+      zjk = "zellij kill-session";
+
+      # Convenient shortcuts
+      ll = "ls -lah";
+      la = "ls -A";
+      l = "ls -CF";
+
+      # Git shortcuts
+      gs = "git status";
+      ga = "git add";
+      gc = "git commit";
+      gp = "git push";
+      gl = "git log --oneline --graph --decorate";
+    };
+
+    interactiveShellInit = ''
+      # Additional zsh configuration
+      setopt HIST_IGNORE_ALL_DUPS
+      setopt HIST_FIND_NO_DUPS
+      setopt HIST_SAVE_NO_DUPS
+      setopt SHARE_HISTORY
+
+      # Better history search
+      bindkey '^R' history-incremental-search-backward
+
+      # Zellij auto-start (optional - comment out if you don't want auto-start)
+      # if [[ -z "$ZELLIJ" ]]; then
+      #   zellij attach --create default
+      # fi
+    '';
+  };
+
+  # === Starship Configuration ===
+  programs.starship = {
+    enable = true;
+    settings = {
+      add_newline = true;
+
+      character = {
+        success_symbol = "[➜](bold green)";
+        error_symbol = "[➜](bold red)";
+      };
+
+      directory = {
+        truncation_length = 3;
+        truncate_to_repo = true;
+      };
+
+      git_branch = {
+        symbol = " ";
+      };
+
+      git_status = {
+        conflicted = "🏳";
+        ahead = "⇡\${count}";
+        behind = "⇣\${count}";
+        diverged = "⇕⇡\${ahead_count}⇣\${behind_count}";
+        untracked = "🤷";
+        stashed = "📦";
+        modified = "📝";
+        staged = "[++($count)](green)";
+        renamed = "👅";
+        deleted = "🗑";
+      };
+
+      nix_shell = {
+        symbol = " ";
+        format = "via [$symbol$state]($style) ";
+      };
+
+      docker_context = {
+        symbol = " ";
+      };
+    };
+  };
+
+  # === Services ===
   services.openssh.enable = true;
 }
