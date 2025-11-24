@@ -41,11 +41,39 @@ let
 in
 {
   options.services.paas.traefik = {
-    enable = mkEnableOption "Traefik reverse proxy"; #
-    # Add any custom options *you* want here, e.g., domain, email
-    # These are NOT official options, just for your wrapper's logic
-    domain = mkOption { type = types.str; default = "wsl.local"; description = "Base domain for Traefik routing."; };
-    acmeEmail = mkOption { type = types.nullOr types.str; default = null; description = "Email for Let's Encrypt."; };
+    enable = mkEnableOption "Traefik reverse proxy";
+
+    domain = mkOption {
+      type = types.str;
+      default = "wsl.local";
+      description = "Base domain for Traefik routing";
+    };
+
+    acmeEmail = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      description = "Email for Let's Encrypt";
+    };
+
+    ports = {
+      http = mkOption {
+        type = types.port;
+        default = 80;
+        description = "HTTP port for web entrypoint";
+      };
+
+      https = mkOption {
+        type = types.port;
+        default = 443;
+        description = "HTTPS port for websecure entrypoint";
+      };
+
+      dashboard = mkOption {
+        type = types.port;
+        default = 8080;
+        description = "Port for Traefik dashboard";
+      };
+    };
   };
 
   # This config block uses the *official* services.traefik options
@@ -56,7 +84,7 @@ in
         # === Official Entrypoints ===
         entryPoints = {
           web = {
-            address = ":80"; #
+            address = ":${toString cfg.ports.http}";
             # Example: Redirect HTTP to HTTPS (uncomment if using TLS)
             # http.redirections.entryPoint = {
             #   to = "websecure";
@@ -64,10 +92,10 @@ in
             # };
           };
           websecure = {
-            address = ":443"; #
+            address = ":${toString cfg.ports.https}";
           };
-          traefik-dash = { # Renamed for clarity
-            address = ":8080"; #
+          traefik-dash = {
+            address = ":${toString cfg.ports.dashboard}";
           };
         };
 

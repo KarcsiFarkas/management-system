@@ -25,10 +25,16 @@
 
     # WSL integration
     wslConf = {
-      network.hostname = "wsl-paas";
+      network = {
+        hostname = "wsl-paas";
+        generateResolvConf = true;  # Let WSL manage DNS
+      };
       interop.appendWindowsPath = false;
     };
   };
+
+  # Fallback DNS configuration if WSL doesn't generate resolv.conf
+  networking.nameservers = lib.mkDefault [ "8.8.8.8" "1.1.1.1" ];
 
   # === User Configuration ===
   users.users.${username} = {
@@ -42,9 +48,18 @@
 
   # === Enable PaaS Services ===
   services.paas = {
-    # Infrastructure
-    traefik.enable = true;
-    traefik.domain = "wsl-paas.local";  # Or use 172.26.159.132.nip.io for wildcard DNS
+    # Infrastructure - Using WSL-friendly ports to avoid conflicts
+    traefik = {
+      enable = true;
+      domain = "wsl-paas.local";  # Or use 172.26.159.132.nip.io for wildcard DNS
+
+      # WSL-specific ports (avoid system ports 80, 443, 8080)
+      ports = {
+        http = 8090;      # Instead of 80 (often used by system)
+        https = 8443;     # Instead of 443
+        dashboard = 9080; # Instead of 8080 (often used by system)
+      };
+    };
 
     # Authentication & Management
     # authelia.enable = true;  # Uncomment when module is fixed
@@ -72,11 +87,12 @@
     enable = true;
     allowedTCPPorts = [
       22    # SSH
-      80    # HTTP
-      443   # HTTPS
-      8080  # Traefik dashboard
+      8090  # Traefik HTTP (WSL-specific)
+      8443  # Traefik HTTPS (WSL-specific)
+      9080  # Traefik dashboard (WSL-specific)
       8088  # Homer
-      8096  # Jellyfin
+      8096  # Jellyfin HTTP
+      8920  # Jellyfin HTTPS
     ];
   };
 
