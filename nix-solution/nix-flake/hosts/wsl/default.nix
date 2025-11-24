@@ -285,7 +285,7 @@ in
           authelia.loadBalancer.servers = [{ url = "http://127.0.0.1:${toString config.services.authelia.settings.server.port}"; }];
         })
         (lib.mkIf config.services.paas.homer.enable {
-          homer.loadBalancer.servers = [{ url = "http://127.0.0.1:${toString config.services.homer.port}"; }];
+          homer.loadBalancer.servers = [{ url = "http://127.0.0.1:${toString config.services.paas.homer.port}"; }];
         })
         (lib.mkIf config.services.paas.immich.enable {
           # Corrected: Need to get port from official immich module options if paas wrapper doesn't define it

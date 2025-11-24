@@ -1,35 +1,193 @@
 # nix-solution/modules/nixos/services/homer.nix
+#
+# Custom PaaS wrapper for the official NixOS Homer service module.
+# Homer is a simple static dashboard for accessing self-hosted services.
+#
+# Upstream module: nixos/modules/services/web-apps/homer.nix
+# Documentation: https://wiki.nixos.org/wiki/Homer
+#
 { config, lib, pkgs, ... }:
 
 with lib;
 let
   # This 'cfg' refers to your custom options under services.paas.homer
   cfg = config.services.paas.homer;
+
+  # Default Homer configuration as Nix attribute set
+  # This will be converted to YAML by the official homer module
+  defaultSettings = {
+    title = "My NixOS Dashboard";
+    subtitle = "Homer";
+    theme = "default";
+
+    services = [
+      {
+        name = "Apps";
+        icon = "fas fa-cloud";
+        items = [
+          {
+            name = "Vaultwarden";
+            subtitle = "Password Manager";
+            url = "http://127.0.0.1:8222";
+          }
+          {
+            name = "Jellyfin";
+            subtitle = "Media Server";
+            url = "http://127.0.0.1:8096";
+          }
+          {
+            name = "Nextcloud";
+            subtitle = "File Sync";
+            url = "http://127.0.0.1:9001";
+          }
+        ];
+      }
+      {
+        name = "Tools";
+        icon = "fas fa-tools";
+        items = [
+          {
+            name = "Traefik";
+            subtitle = "Dashboard";
+            url = "http://127.0.0.1:8080";
+          }
+        ];
+      }
+    ];
+  };
 in
 {
   options.services.paas.homer = {
-    enable = mkEnableOption "Homer static dashboard"; #
-    port = mkOption { type = types.port; default = 8088; description = "Port Homer will listen on."; }; #
-    configFile = mkOption { type = types.path; default = ./homer-default.yml; description = "Path to Homer's config.yml."; }; #
-    # Add custom options if needed
-  };
+    enable = mkEnableOption "Homer static dashboard";
 
-  # This config block uses the *official* services.homer options
-  config = mkIf cfg.enable {
-    # Enable the *official* Homer service
-    services.homer = {
-      enable = true;
-      # === Configure Official Homer Options ===
-      port = cfg.port; # Use the port from your options
-      configFile = cfg.configFile; # Use the config file from your options
-      # You can add more official options here if needed, like 'host'
-      # host = "127.0.0.1"; # Example: Listen only on localhost if behind Traefik
+    port = mkOption {
+      type = types.port;
+      default = 8088;
+      description = lib.mdDoc ''
+        Port that Homer will listen on.
+        This is passed through to the web server (nginx or caddy) hosting Homer.
+      '';
     };
 
-    # Firewall - The official module handles this if needed, but explicit is fine too.
-    networking.firewall.allowedTCPPorts = [ cfg.port ]; #
+    settings = mkOption {
+      type = types.attrs;
+      default = defaultSettings;
+      example = literalExpression ''
+        {
+          title = "My Services Dashboard";
+          subtitle = "Homer";
+          services = [
+            {
+              name = "Apps";
+              icon = "fas fa-cloud";
+              items = [
+                {
+                  name = "Nextcloud";
+                  subtitle = "File Sync";
+                  url = "https://nextcloud.example.com";
+                  icon = "fas fa-cloud";
+                }
+              ];
+            }
+          ];
+        }
+      '';
+      description = lib.mdDoc ''
+        Configuration for Homer dashboard serialized into config.yml.
+        See https://github.com/bastienwirtz/homer for configuration options.
 
-    # Ensure the config file exists (optional, NixOS module might handle it)
-    environment.etc."homer-config.yml" = { source = cfg.configFile; };
+        Note: The configuration will be written to the Nix store as world-readable,
+        so avoid including sensitive data like API keys.
+      '';
+    };
+
+    virtualHost = {
+      enable = mkOption {
+        type = types.bool;
+        default = false;
+        description = lib.mdDoc ''
+          Whether to enable a virtual host for Homer.
+          If false, Homer will still be accessible on localhost:port.
+          If true, configure either nginx or caddy backend.
+        '';
+      };
+
+      backend = mkOption {
+        type = types.enum [ "nginx" "caddy" ];
+        default = "nginx";
+        description = lib.mdDoc ''
+          Which web server to use for hosting Homer.
+          The official Homer module supports both nginx and caddy.
+        '';
+      };
+
+      domain = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        example = "dashboard.example.com";
+        description = lib.mdDoc ''
+          Domain name for the Homer virtual host.
+          Required if virtualHost.enable is true.
+        '';
+      };
+    };
+  };
+
+  config = mkIf cfg.enable {
+    # Enable the official Homer service with our settings
+    services.homer = {
+      enable = true;
+
+      # Pass through the settings to the official module
+      # The official module will convert this attribute set to YAML config.yml
+      settings = cfg.settings;
+
+      # Configure virtual host if requested
+      # The official homer module supports nginx and caddy backends
+      virtualHost = mkIf cfg.virtualHost.enable {
+        ${cfg.virtualHost.backend} = {
+          enable = true;
+        } // optionalAttrs (cfg.virtualHost.domain != null) {
+          domain = cfg.virtualHost.domain;
+        };
+      };
+    };
+
+    # When virtualHost is disabled, we need to manually configure nginx
+    # to serve Homer on our custom port (default 8088)
+    # The official module only configures nginx when virtualHost is enabled
+    services.nginx = mkIf (!cfg.virtualHost.enable) {
+      enable = true;
+
+      virtualHosts."homer-local" = {
+        listen = [{
+          addr = "127.0.0.1";
+          port = cfg.port;
+        }];
+
+        # Serve Homer's static files
+        root = "${pkgs.homer}";
+
+        locations."/" = {
+          tryFiles = "$uri $uri/ /index.html";
+        };
+
+        # The config.yml is generated by the official homer module
+        # and placed in a derivation that we need to reference
+        # For now, we let the official module handle this when virtualHost is enabled
+        # When disabled, Homer will try to fetch config.yml from the same location
+      };
+    };
+
+    # Open firewall port for local access (only when not using virtualHost)
+    networking.firewall.allowedTCPPorts = mkIf (!cfg.virtualHost.enable) [ cfg.port ];
+
+    # Assertions to catch configuration errors early
+    assertions = [
+      {
+        assertion = !cfg.virtualHost.enable || cfg.virtualHost.domain != null;
+        message = "services.paas.homer.virtualHost.domain must be set when virtualHost.enable is true";
+      }
+    ];
   };
 }
