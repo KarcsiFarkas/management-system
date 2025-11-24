@@ -96,6 +96,42 @@ def create_or_update_tenant_profile(form_data, user_object):
     if general_data['password_mode'] == 'custom':
         general_data['universal_password_custom'] = form_data.get('universal_password_custom', '')
 
+    # --- Tailscale Configuration (if enabled) ---
+    tailscale_enabled = form_data.get('tailscale_enabled') == 'on'
+    if tailscale_enabled:
+        tailscale_data = {
+            'enabled': True,
+            'auth_key': form_data.get('tailscale_auth_key', ''),  # Will be stored as env var
+            'hostname': form_data.get('tailscale_hostname', '').strip() or None,
+            'accept_routes': form_data.get('tailscale_accept_routes') == 'on',
+            'accept_dns': form_data.get('tailscale_accept_dns') == 'on',
+            'ssh': form_data.get('tailscale_ssh') == 'on',
+            'advertise_exit_node': form_data.get('tailscale_advertise_exit_node') == 'on',
+        }
+
+        # Parse tags (comma-separated)
+        tags_input = form_data.get('tailscale_tags', '').strip()
+        if tags_input:
+            tailscale_data['tags'] = [tag.strip() for tag in tags_input.split(',') if tag.strip()]
+        else:
+            tailscale_data['tags'] = []
+
+        # Parse advertise routes (comma-separated CIDR)
+        routes_input = form_data.get('tailscale_advertise_routes', '').strip()
+        if routes_input:
+            tailscale_data['advertise_routes'] = [route.strip() for route in routes_input.split(',') if route.strip()]
+        else:
+            tailscale_data['advertise_routes'] = []
+
+        # Exit node (optional)
+        exit_node = form_data.get('tailscale_exit_node', '').strip()
+        tailscale_data['exit_node'] = exit_node if exit_node else 'none'
+
+        general_data['tailscale'] = tailscale_data
+    else:
+        # Explicitly disable if checkbox not checked
+        general_data['tailscale'] = {'enabled': False}
+
     if os.path.exists(general_path):
         with open(general_path, 'r') as f:
             existing_data = yaml.safe_load(f)

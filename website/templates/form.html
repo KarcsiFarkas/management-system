@@ -66,6 +66,130 @@
         </div>
     </div>
 
+    <!-- Tailscale VPN Configuration -->
+    <div class="card summary-card">
+        <div class="service-card-header">
+            <div class="service-card-title">
+                <h4>🔒 Tailscale VPN (Optional Remote Access)</h4>
+                <p class="help-text">Enable secure remote access to your server via Tailscale VPN. Access your services from anywhere without exposing ports.</p>
+            </div>
+            <div class="service-card-controls">
+                <button type="button" class="toggle-button">
+                    <span class="toggle-text">Collapse</span>
+                    <span class="toggle-arrow">▼</span>
+                </button>
+            </div>
+        </div>
+        <div class="service-card-body">
+            <div class="form-row">
+                <div>
+                    <label for="tailscale_enabled">
+                        <input type="checkbox" id="tailscale_enabled" name="tailscale_enabled"
+                               {% if (profile_data and profile_data.tailscale and profile_data.tailscale.enabled) or (not profile_data) %}checked{% endif %}>
+                        Enable Tailscale VPN
+                    </label>
+                    <p class="help-text">
+                        Tailscale creates a secure mesh VPN network. Install by default for remote access.
+                        <a href="https://tailscale.com/" target="_blank" rel="noopener">Learn more →</a>
+                    </p>
+                </div>
+            </div>
+
+            <div id="tailscale_config" style="display: {% if (profile_data and profile_data.tailscale and profile_data.tailscale.enabled) or (not profile_data) %}block{% else %}none{% endif %};">
+                <div class="form-row">
+                    <div>
+                        <label for="tailscale_auth_key">Tailscale Auth Key <span class="required">*</span></label>
+                        <input type="password" id="tailscale_auth_key" name="tailscale_auth_key"
+                               value="{{ profile_data.tailscale.auth_key if profile_data and profile_data.tailscale else '' }}"
+                               placeholder="tskey-auth-xxxxx-yyyyy">
+                        <p class="help-text">
+                            Get your auth key from <a href="https://login.tailscale.com/admin/settings/keys" target="_blank" rel="noopener">Tailscale Admin Console</a>.
+                            Recommended: Use one-time keys for production. This key will be stored securely as an environment variable.
+                        </p>
+                    </div>
+                    <div>
+                        <label for="tailscale_hostname">Hostname (Optional)</label>
+                        <input type="text" id="tailscale_hostname" name="tailscale_hostname"
+                               value="{{ profile_data.tailscale.hostname if profile_data and profile_data.tailscale else '' }}"
+                               placeholder="my-paas-server">
+                        <p class="help-text">Name for this device in your Tailscale network. Defaults to server hostname if not specified.</p>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div>
+                        <label for="tailscale_tags">Tags (comma-separated)</label>
+                        <input type="text" id="tailscale_tags" name="tailscale_tags"
+                               value="{{ profile_data.tailscale.tags|join(',') if profile_data and profile_data.tailscale and profile_data.tailscale.tags else 'tag:paas-server' }}"
+                               placeholder="tag:server,tag:production">
+                        <p class="help-text">Tailscale ACL tags for access control. Example: tag:production,tag:web-server</p>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div>
+                        <label>
+                            <input type="checkbox" id="tailscale_ssh" name="tailscale_ssh"
+                                   {% if profile_data and profile_data.tailscale and profile_data.tailscale.ssh %}checked{% endif %}>
+                            Enable Tailscale SSH
+                        </label>
+                        <p class="help-text">Access server via SSH through Tailscale without exposing port 22 publicly.</p>
+                    </div>
+                    <div>
+                        <label>
+                            <input type="checkbox" id="tailscale_accept_dns" name="tailscale_accept_dns"
+                                   {% if (profile_data and profile_data.tailscale and profile_data.tailscale.accept_dns) or (not profile_data) %}checked{% endif %}>
+                            Accept Tailscale DNS
+                        </label>
+                        <p class="help-text">Use Tailscale's DNS for seamless name resolution (recommended).</p>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div>
+                        <label>
+                            <input type="checkbox" id="tailscale_accept_routes" name="tailscale_accept_routes"
+                                   {% if profile_data and profile_data.tailscale and profile_data.tailscale.accept_routes %}checked{% endif %}>
+                            Accept Advertised Routes
+                        </label>
+                        <p class="help-text">Accept subnet routes from other devices in your Tailscale network.</p>
+                    </div>
+                    <div>
+                        <label>
+                            <input type="checkbox" id="tailscale_advertise_exit_node" name="tailscale_advertise_exit_node"
+                                   {% if profile_data and profile_data.tailscale and profile_data.tailscale.advertise_exit_node %}checked{% endif %}>
+                            Advertise as Exit Node
+                        </label>
+                        <p class="help-text">Allow other devices to route all internet traffic through this server.</p>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div>
+                        <label for="tailscale_advertise_routes">Advertise Routes (comma-separated CIDR)</label>
+                        <input type="text" id="tailscale_advertise_routes" name="tailscale_advertise_routes"
+                               value="{{ profile_data.tailscale.advertise_routes|join(',') if profile_data and profile_data.tailscale and profile_data.tailscale.advertise_routes else '' }}"
+                               placeholder="192.168.1.0/24,10.0.0.0/8">
+                        <p class="help-text">Make this server a subnet router. Other Tailscale devices can access these networks.</p>
+                    </div>
+                    <div>
+                        <label for="tailscale_exit_node">Use Exit Node</label>
+                        <input type="text" id="tailscale_exit_node" name="tailscale_exit_node"
+                               value="{{ profile_data.tailscale.exit_node if profile_data and profile_data.tailscale and profile_data.tailscale.exit_node != 'none' else '' }}"
+                               placeholder="exit-node-hostname">
+                        <p class="help-text">Route all traffic through a specific exit node (hostname or IP). Leave empty to disable.</p>
+                    </div>
+                </div>
+
+                <div class="alert-info" style="margin-top: 1rem; padding: 1rem; background: #e3f2fd; border-left: 4px solid #2196F3; border-radius: 4px;">
+                    <strong>💡 Quick Setup:</strong> For basic remote access, just enable Tailscale and provide an auth key. The defaults work for most users!
+                    <br><br>
+                    <strong>🔐 Security Note:</strong> Your Tailscale auth key is stored as an environment variable and never committed to Git.
+                    It's used once during deployment to connect your server to your Tailscale network.
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div class="form-columns">
         <div class="available-services-column card">

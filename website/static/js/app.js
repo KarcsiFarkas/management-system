@@ -239,4 +239,27 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- INITIALIZATION ---
     updateSelectedServicesUI();
+
+    // --- TAILSCALE CONFIGURATION TOGGLE ---
+    const tailscaleEnabledCheckbox = document.getElementById('tailscale_enabled');
+    const tailscaleConfig = document.getElementById('tailscale_config');
+
+    if (tailscaleEnabledCheckbox && tailscaleConfig) {
+        tailscaleEnabledCheckbox.addEventListener('change', function() {
+            tailscaleConfig.style.display = this.checked ? 'block' : 'none';
+
+            // Toggle required state for auth key
+            const authKeyInput = document.getElementById('tailscale_auth_key');
+            if (authKeyInput) {
+                if (this.checked) {
+                    authKeyInput.setAttribute('required', 'required');
+                } else {
+                    authKeyInput.removeAttribute('required');
+                }
+            }
+        });
+
+        // Trigger initial state
+        tailscaleConfig.style.display = tailscaleEnabledCheckbox.checked ? 'block' : 'none';
+    }
 });
