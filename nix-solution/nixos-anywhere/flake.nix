@@ -30,9 +30,21 @@
       url = "github:nix-community/NixOS-WSL";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # Yazi file manager (bleeding edge)
+    yazi = {
+      url = "github:sxyazi/yazi";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, disko, sops-nix, home-manager, nixos-wsl, ... }@inputs:
+  # Cachix configuration for faster builds
+  nixConfig = {
+    extra-substituters = [ "https://yazi.cachix.org" ];
+    extra-trusted-public-keys = [ "yazi.cachix.org-1:Dcdz63NZKfvUCbDGngQDAZq6kOroIrFoyO064uvLh8k=" ];
+  };
+
+  outputs = { self, nixpkgs, disko, sops-nix, home-manager, nixos-wsl, yazi, ... }@inputs:
     let
       # Supported systems
       supportedSystems = [ "x86_64-linux" "aarch64-linux" ];

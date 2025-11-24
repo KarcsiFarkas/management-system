@@ -27,14 +27,14 @@
     wslConf = {
       network = {
         hostname = "wsl-paas";
-        generateResolvConf = true;  # Let WSL manage DNS
+        generateResolvConf = false;  # Disable WSL DNS management (doesn't work properly)
       };
       interop.appendWindowsPath = false;
     };
   };
 
-  # Fallback DNS configuration if WSL doesn't generate resolv.conf
-  networking.nameservers = lib.mkDefault [ "8.8.8.8" "1.1.1.1" ];
+  # Use static DNS servers (WSL auto-generation doesn't work)
+  networking.nameservers = [ "8.8.8.8" "1.1.1.1" ];
 
   # === User Configuration ===
   users.users.${username} = {
@@ -108,6 +108,24 @@
     # Terminal multiplexer and shell enhancements
     zellij      # Modern terminal multiplexer (replaces tmux)
     starship    # Cross-shell prompt
+    zoxide      # Smarter cd command
+    atuin       # Magical shell history
+    bat         # Better cat with syntax highlighting
+    eza         # Better ls (modern replacement for exa)
+
+    # File manager and dependencies
+    (inputs.yazi.packages.${pkgs.system}.default.override {
+      _7zz = pkgs._7zz-rar;  # Support for RAR extraction
+    })
+    # Yazi dependencies for preview and features
+    ffmpegthumbnailer  # Video thumbnails
+    unar              # Archive preview
+    jq                # JSON preview
+    poppler-utils     # PDF preview
+    fd                # File searching
+    ripgrep           # Content searching
+    fzf               # Fuzzy finder
+    imagemagick       # Image operations
 
     # Docker tools
     docker-compose
@@ -126,6 +144,9 @@
     };
   };
 
+  # Allow unfree packages (needed for 7zz-rar)
+  nixpkgs.config.allowUnfree = true;
+
   # === Shell Configuration ===
   programs.zsh = {
     enable = true;
@@ -142,10 +163,14 @@
       zjl = "zellij list-sessions";
       zjk = "zellij kill-session";
 
+      # File manager
+      y = "yazi";
+
       # Convenient shortcuts
       ll = "ls -lah";
       la = "ls -A";
       l = "ls -CF";
+      cat = "bat";  # Better cat with syntax highlighting
 
       # Git shortcuts
       gs = "git status";
@@ -162,8 +187,24 @@
       setopt HIST_SAVE_NO_DUPS
       setopt SHARE_HISTORY
 
-      # Better history search
-      bindkey '^R' history-incremental-search-backward
+      # Initialize zoxide (smarter cd)
+      eval "$(${pkgs.zoxide}/bin/zoxide init zsh)"
+
+      # Initialize atuin (magical shell history)
+      eval "$(${pkgs.atuin}/bin/atuin init zsh --disable-up-arrow)"
+
+      # Atuin keybindings
+      bindkey '^r' _atuin_search_widget  # Ctrl+R for history search
+
+      # Yazi shell wrapper for directory changing
+      function y() {
+        local tmp="$(mktemp -t "yazi-cwd.XXXXXX")"
+        yazi "$@" --cwd-file="$tmp"
+        if cwd="$(cat -- "$tmp")" && [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
+          cd -- "$cwd"
+        fi
+        rm -f -- "$tmp"
+      }
 
       # Zellij auto-start (optional - comment out if you don't want auto-start)
       # if [[ -z "$ZELLIJ" ]]; then
@@ -215,6 +256,24 @@
       };
     };
   };
+
+  # === Additional Configuration ===
+  # Atuin config file (optional - users can customize at ~/.config/atuin/config.toml)
+  environment.etc."atuin/config.toml".text = ''
+    auto_sync = true
+    sync_frequency = "5m"
+    sync_address = "https://api.atuin.sh"
+    search_mode = "fuzzy"
+    filter_mode = "global"
+    style = "compact"
+    inline_height = 20
+    show_preview = true
+    exit_mode = "return-query"
+    keymap_mode = "vim-normal"
+  '';
+
+  # Yazi config directory structure will be created on first run
+  # Users can customize at ~/.config/yazi/
 
   # === Services ===
   services.openssh.enable = true;
