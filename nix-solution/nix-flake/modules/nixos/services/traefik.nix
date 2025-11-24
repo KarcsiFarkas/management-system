@@ -7,6 +7,37 @@ with lib;
 let
   # This 'cfg' refers to your custom options under services.paas.traefik
   cfg = config.services.paas.traefik;
+
+  # Base domain for routing (from our custom option)
+  baseDomain = cfg.domain;
+
+  # Helper function to check if a PaaS service is enabled
+  # Checks config.services.paas.<serviceName>.enable
+  isPaaSEnabled = serviceName:
+    let
+      serviceConfig = config.services.paas.${serviceName} or null;
+    in
+      serviceConfig != null && serviceConfig.enable or false;
+
+  # Helper function to get a PaaS service's domain
+  # Returns the domain configured for the service, or constructs one from baseDomain
+  getPaaSDomain = serviceName:
+    let
+      serviceConfig = config.services.paas.${serviceName} or null;
+    in
+      if serviceConfig != null && serviceConfig ? domain
+      then serviceConfig.domain
+      else "${serviceName}.${baseDomain}";
+
+  # Helper function to get a PaaS service's port
+  # Returns the port configured for the service
+  getPaaSPort = serviceName:
+    let
+      serviceConfig = config.services.paas.${serviceName} or null;
+    in
+      if serviceConfig != null && serviceConfig ? port
+      then serviceConfig.port
+      else throw "Service ${serviceName} does not have a port configured";
 in
 {
   options.services.paas.traefik = {

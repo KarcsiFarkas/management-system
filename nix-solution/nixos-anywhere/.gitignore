@@ -1,0 +1,54 @@
+# Nix build outputs
+result
+result-*
+
+# Secrets (unencrypted)
+secrets/secrets.yaml.dec
+secrets/*.key
+secrets/*.txt
+*.age
+
+# Do NOT ignore encrypted secrets
+# secrets/secrets.yaml should be committed (it's encrypted)
+
+# SSH keys
+*.pem
+*.ppk
+id_rsa*
+id_ed25519*
+id_ecdsa*
+
+# Age keys (NEVER commit private keys)
+keys.txt
+age-key.txt
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+*~
+.*.sw?
+
+# Editor files
+.vscode/
+.idea/
+*.code-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local configuration overrides
+local.nix
+*.local.nix
+
+# Hardware configuration (generated per-host)
+hosts/*/hardware-configuration.nix
+
+# Logs
+*.log
+logs/
+
+# Backup files
+*.bak
+*.backup
