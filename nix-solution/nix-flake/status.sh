@@ -72,8 +72,9 @@ check_port_listening() {
 clear
 print_header "NixOS PaaS Installation Status Report"
 
-# --- Use networking.domain from NixOS config if possible ---
-BASE_DOMAIN=$(nixos-option networking.domain 2>/dev/null | grep -oP '(?<=").*(?=")' | head -n1 || echo "wsl.local")
+# --- Get IP address and construct nip.io domain ---
+HOST_IP=$(ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1' | head -n1)
+BASE_DOMAIN=$(nixos-option networking.domain 2>/dev/null | grep -oP '(?<=").*(?=")' | head -n1 || echo "${HOST_IP}.nip.io")
 HOSTNAME=$(get_hostname_or_ip)
 CURRENT_USER=$(whoami)
 NIXOS_VERSION=$(nixos-version 2>/dev/null || echo "unknown")
@@ -106,12 +107,13 @@ print_section "Reverse Proxy & Load Balancer"
 
 TRAEFIK_STATUS=$(get_service_status "traefik")
 if [[ "$TRAEFIK_STATUS" != "not-installed" ]]; then
-  TRAEFIK_HTTP=$(check_port_listening 80 && echo "80" || echo "")
-  TRAEFIK_HTTPS=$(check_port_listening 443 && echo "443" || echo "")
-  TRAEFIK_DASH=$(check_port_listening 8080 && echo "8080" || echo "")
+  # Check both standard and WSL-specific ports
+  TRAEFIK_HTTP=$(check_port_listening 8090 && echo "8090" || check_port_listening 80 && echo "80" || echo "")
+  TRAEFIK_HTTPS=$(check_port_listening 8443 && echo "8443" || check_port_listening 443 && echo "443" || echo "")
+  TRAEFIK_DASH=$(check_port_listening 9080 && echo "9080" || check_port_listening 8080 && echo "8080" || echo "")
 
   TRAEFIK_PORTS="HTTP:${TRAEFIK_HTTP:-off} HTTPS:${TRAEFIK_HTTPS:-off} Dashboard:${TRAEFIK_DASH:-off}"
-  TRAEFIK_URL="http://traefik.${BASE_DOMAIN}:${TRAEFIK_DASH:-8080}/dashboard/"
+  TRAEFIK_URL="http://traefik.${BASE_DOMAIN}:${TRAEFIK_DASH}/dashboard/"
 
   print_service "Traefik" "$TRAEFIK_STATUS" "$TRAEFIK_PORTS" "$TRAEFIK_URL" "Reverse proxy & SSL termination"
 else
@@ -381,24 +383,27 @@ EOF
 
 # Collect all active web services USING TRAEFIK DOMAINS
 declare -A WEB_SERVICES
-[[ "$TRAEFIK_STATUS" == "active" ]] && WEB_SERVICES["Traefik Dashboard"]="http://traefik.${BASE_DOMAIN}:8080/dashboard/"
-[[ "$JELLYFIN_STATUS" == "active" ]] && WEB_SERVICES["Jellyfin"]="http://jellyfin.${BASE_DOMAIN}"
-[[ "$VAULTWARDEN_STATUS" == "active" ]] && WEB_SERVICES["Vaultwarden"]="http://vaultwarden.${BASE_DOMAIN}"
-[[ "$NEXTCLOUD_STATUS" == "active" ]] && WEB_SERVICES["Nextcloud"]="http://nextcloud.${BASE_DOMAIN}"
-[[ "$AUTHELIA_STATUS" == "active" ]] && WEB_SERVICES["Authelia"]="http://authelia.${BASE_DOMAIN}"
+# Use detected Traefik dashboard port (9080 for WSL, 8080 for standard)
+[[ "$TRAEFIK_STATUS" == "active" ]] && WEB_SERVICES["Traefik Dashboard"]="http://traefik.${BASE_DOMAIN}:${TRAEFIK_DASH}/dashboard/"
+# Services accessed through Traefik HTTP port (8090 for WSL, 80 for standard)
+[[ "$JELLYFIN_STATUS" == "active" ]] && WEB_SERVICES["Jellyfin"]="http://jellyfin.${BASE_DOMAIN}:${TRAEFIK_HTTP}"
+[[ "$VAULTWARDEN_STATUS" == "active" ]] && WEB_SERVICES["Vaultwarden"]="http://vaultwarden.${BASE_DOMAIN}:${TRAEFIK_HTTP}"
+[[ "$NEXTCLOUD_STATUS" == "active" ]] && WEB_SERVICES["Nextcloud"]="http://nextcloud.${BASE_DOMAIN}:${TRAEFIK_HTTP}"
+[[ "$AUTHELIA_STATUS" == "active" ]] && WEB_SERVICES["Authelia"]="http://authelia.${BASE_DOMAIN}:${TRAEFIK_HTTP}"
+[[ "$NAVIDROME_STATUS" == "active" ]] && WEB_SERVICES["Navidrome"]="http://navidrome.${BASE_DOMAIN}:${TRAEFIK_HTTP}"
+[[ "$SEAFILE_STATUS" == "active" ]] && WEB_SERVICES["Seafile"]="http://seafile.${BASE_DOMAIN}:${TRAEFIK_HTTP}"
+[[ "$GITEA_STATUS" == "active" ]] && WEB_SERVICES["Gitea"]="http://gitea.${BASE_DOMAIN}:${TRAEFIK_HTTP}"
+[[ "$SONARR_STATUS" == "active" ]] && WEB_SERVICES["Sonarr"]="http://sonarr.${BASE_DOMAIN}:${TRAEFIK_HTTP}"
+[[ "$RADARR_STATUS" == "active" ]] && WEB_SERVICES["Radarr"]="http://radarr.${BASE_DOMAIN}:${TRAEFIK_HTTP}"
+[[ "$QBITTORRENT_STATUS" == "active" ]] && WEB_SERVICES["qBittorrent"]="http://qbittorrent.${BASE_DOMAIN}:${TRAEFIK_HTTP}"
+[[ "$VIKUNJA_STATUS" == "active" ]] && WEB_SERVICES["Vikunja"]="http://vikunja.${BASE_DOMAIN}:${TRAEFIK_HTTP}"
+[[ "$FRESHRSS_STATUS" == "active" ]] && WEB_SERVICES["FreshRSS"]="http://freshrss.${BASE_DOMAIN}:${TRAEFIK_HTTP}"
+[[ "$FIREFLY_STATUS" == "active" ]] && WEB_SERVICES["Firefly III"]="http://firefly.${BASE_DOMAIN}:${TRAEFIK_HTTP}"
+[[ "$HOMER_STATUS" == "active" ]] && WEB_SERVICES["Homer"]="http://homer.${BASE_DOMAIN}:${TRAEFIK_HTTP}"
+[[ "$IMMICH_STATUS" == "active" ]] && WEB_SERVICES["Immich"]="http://immich.${BASE_DOMAIN}:${TRAEFIK_HTTP}"
+# Services with direct access (not through Traefik)
 [[ "$LLDAP_STATUS" == "active" ]] && WEB_SERVICES["LLDAP"]="http://${HOSTNAME}:17170"
-[[ "$NAVIDROME_STATUS" == "active" ]] && WEB_SERVICES["Navidrome"]="http://navidrome.${BASE_DOMAIN}"
-[[ "$SEAFILE_STATUS" == "active" ]] && WEB_SERVICES["Seafile"]="http://seafile.${BASE_DOMAIN}"
 [[ "$SYNCTHING_STATUS" == "active" ]] && WEB_SERVICES["Syncthing"]="http://${HOSTNAME}:8384"
-[[ "$GITEA_STATUS" == "active" ]] && WEB_SERVICES["Gitea"]="http://gitea.${BASE_DOMAIN}"
-[[ "$SONARR_STATUS" == "active" ]] && WEB_SERVICES["Sonarr"]="http://sonarr.${BASE_DOMAIN}"
-[[ "$RADARR_STATUS" == "active" ]] && WEB_SERVICES["Radarr"]="http://radarr.${BASE_DOMAIN}"
-[[ "$QBITTORRENT_STATUS" == "active" ]] && WEB_SERVICES["qBittorrent"]="http://qbittorrent.${BASE_DOMAIN}"
-[[ "$VIKUNJA_STATUS" == "active" ]] && WEB_SERVICES["Vikunja"]="http://vikunja.${BASE_DOMAIN}"
-[[ "$FRESHRSS_STATUS" == "active" ]] && WEB_SERVICES["FreshRSS"]="http://freshrss.${BASE_DOMAIN}"
-[[ "$FIREFLY_STATUS" == "active" ]] && WEB_SERVICES["Firefly III"]="http://firefly.${BASE_DOMAIN}"
-[[ "$HOMER_STATUS" == "active" ]] && WEB_SERVICES["Homer"]="http://homer.${BASE_DOMAIN}"
-[[ "$IMMICH_STATUS" == "active" ]] && WEB_SERVICES["Immich"]="http://immich.${BASE_DOMAIN}"
 
 if [[ ${#WEB_SERVICES[@]} -gt 0 ]]; then
   echo -e "${BOLD}Active Web Interfaces (via Traefik):${NC}"

@@ -54,7 +54,7 @@
     # Infrastructure - Using WSL-friendly ports to avoid conflicts
     traefik = {
       enable = true;
-      domain = "wsl-paas.local";  # Or use 172.26.159.132.nip.io for wildcard DNS
+      domain = "172.26.159.132.nip.io";  # Wildcard DNS using nip.io
 
       # WSL-specific ports (avoid system ports 80, 443, 8080)
       ports = {
@@ -102,7 +102,8 @@
   # === System Packages ===
   environment.systemPackages = with pkgs; [
     # Essential tools
-    vim
+    helix      # Modern modal editor (default)
+    vim        # Fallback editor
     git
     curl
     wget
@@ -153,8 +154,9 @@
   # === Environment Variables ===
   environment.sessionVariables = {
     # Ensure proper PATH for all shells
-    EDITOR = "vim";
-    VISUAL = "vim";
+    EDITOR = "hx";     # Helix editor
+    VISUAL = "hx";     # Helix editor
+    HELIX_RUNTIME = "${pkgs.helix}/lib/runtime";  # Helix runtime path
 
     # Zoxide data directory (optional - uses default if not set)
     _ZO_DATA_DIR = "$HOME/.local/share/zoxide";
@@ -192,6 +194,10 @@
 
     # Shell aliases
     shellAliases = {
+      # Helix editor aliases
+      hx = "helix";
+      vi = "helix";    # Override vi to use helix
+
       # Zellij aliases (replaces tmux)
       zj = "zellij";
       zja = "zellij attach";
