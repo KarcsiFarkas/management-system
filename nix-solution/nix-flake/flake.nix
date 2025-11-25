@@ -63,9 +63,9 @@
             home-manager.extraSpecialArgs = { inherit inputs hostname username; };
           }
 
-          # === Secrets Integration (Optional) ===
-          sops-nix.nixosModules.sops
-          ./secrets # Import secrets configuration
+          # === Secrets Integration (Optional) - DISABLED for DNS fix ===
+          # sops-nix.nixosModules.sops
+          # ./secrets # Import secrets configuration
 
           # === Host Specific Configuration ===
           ./hosts/${hostname}/default.nix

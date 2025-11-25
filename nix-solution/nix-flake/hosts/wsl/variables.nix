@@ -1,5 +1,5 @@
 {
-  username = "wsluser";
+  username = "nixos";  # Fixed: actual user is 'nixos' not 'wsluser'
   networking = {
     mode = "static";
     interface = "eth0";

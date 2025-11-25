@@ -36,6 +36,18 @@
   # Use static DNS servers (WSL auto-generation doesn't work)
   networking.nameservers = [ "8.8.8.8" "1.1.1.1" ];
 
+  # FORCE NixOS to create /etc/resolv.conf as a real file (not symlink)
+  # This overrides WSL's symlink to /mnt/wsl/resolv.conf
+  environment.etc."resolv.conf" = {
+    mode = "0644";
+    text = ''
+      # NixOS managed DNS configuration
+      # DO NOT EDIT - This file is managed by NixOS
+      nameserver 8.8.8.8
+      nameserver 1.1.1.1
+    '';
+  };
+
   # === User Configuration ===
   users.users.${username} = {
     isNormalUser = true;
@@ -147,15 +159,47 @@
   # Allow unfree packages (needed for 7zz-rar)
   nixpkgs.config.allowUnfree = true;
 
+  # === Environment Variables ===
+  environment.sessionVariables = {
+    # Ensure proper PATH for all shells
+    EDITOR = "vim";
+    VISUAL = "vim";
+
+    # Zoxide data directory (optional - uses default if not set)
+    _ZO_DATA_DIR = "$HOME/.local/share/zoxide";
+
+    # Atuin configuration
+    ATUIN_NOBIND = "true";  # We handle keybindings manually for better control
+  };
+
   # === Shell Configuration ===
   programs.zsh = {
     enable = true;
 
-    # Enable starship prompt
-    promptInit = ''
-      eval "$(${pkgs.starship}/bin/starship init zsh)"
-    '';
+    # Enable completions (critical for proper tool integration)
+    enableCompletion = true;
 
+    # Enable autosuggestions for better UX
+    autosuggestions.enable = true;
+
+    # Enable syntax highlighting
+    syntaxHighlighting.enable = true;
+
+    # History configuration
+    histSize = 50000;
+    histFile = "$HOME/.zsh_history";
+
+    # Zsh options set before any initialization
+    setOptions = [
+      "HIST_IGNORE_ALL_DUPS"
+      "HIST_FIND_NO_DUPS"
+      "HIST_SAVE_NO_DUPS"
+      "SHARE_HISTORY"
+      "INC_APPEND_HISTORY"
+      "EXTENDED_HISTORY"
+    ];
+
+    # Shell aliases
     shellAliases = {
       # Zellij aliases (replaces tmux)
       zj = "zellij";
@@ -163,8 +207,7 @@
       zjl = "zellij list-sessions";
       zjk = "zellij kill-session";
 
-      # File manager
-      y = "yazi";
+      # Note: 'y' alias removed - using function instead (defined below)
 
       # Convenient shortcuts
       ll = "ls -lah";
@@ -180,28 +223,35 @@
       gl = "git log --oneline --graph --decorate";
     };
 
-    interactiveShellInit = ''
-      # Additional zsh configuration
-      setopt HIST_IGNORE_ALL_DUPS
-      setopt HIST_FIND_NO_DUPS
-      setopt HIST_SAVE_NO_DUPS
-      setopt SHARE_HISTORY
+    # Early initialization (runs before interactive setup)
+    shellInit = ''
+      # Ensure nix profile is in PATH (critical for WSL)
+      if [ -e "$HOME/.nix-profile/etc/profile.d/nix.sh" ]; then
+        . "$HOME/.nix-profile/etc/profile.d/nix.sh"
+      fi
+    '';
 
-      # Initialize zoxide (smarter cd)
+    # Prompt initialization (runs after shellInit, before interactiveShellInit)
+    promptInit = ''
+      # Initialize Starship prompt
+      eval "$(${pkgs.starship}/bin/starship init zsh)"
+    '';
+
+    # Interactive shell initialization (runs last, for interactive shells only)
+    interactiveShellInit = ''
+      # Initialize zoxide (smarter cd command)
       eval "$(${pkgs.zoxide}/bin/zoxide init zsh)"
 
       # Initialize atuin (magical shell history)
       eval "$(${pkgs.atuin}/bin/atuin init zsh --disable-up-arrow)"
 
-      # Atuin keybindings
-      bindkey '^r' _atuin_search_widget  # Ctrl+R for history search
-
       # Yazi shell wrapper for directory changing
+      # This MUST be a function (not an alias) to support the cd wrapper
       function y() {
-        local tmp="$(mktemp -t "yazi-cwd.XXXXXX")"
+        local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
         yazi "$@" --cwd-file="$tmp"
-        if cwd="$(cat -- "$tmp")" && [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
-          cd -- "$cwd"
+        if cwd="$(command cat -- "$tmp")" && [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
+          builtin cd -- "$cwd"
         fi
         rm -f -- "$tmp"
       }
