@@ -245,7 +245,7 @@ in
             dashboard = {
               rule = "Host(`traefik.${baseDomain}`)";
               service = "api@internal";
-              entryPoints = [ "traefik" ];
+              entryPoints = [ "traefik-dash" ];
             };
           })
         ];

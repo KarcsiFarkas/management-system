@@ -27,26 +27,17 @@
     wslConf = {
       network = {
         hostname = "wsl-paas";
-        generateResolvConf = false;  # Disable WSL DNS management (doesn't work properly)
+        generateResolvConf = true;  # Let WSL manage the file
       };
       interop.appendWindowsPath = false;
     };
   };
 
-  # Use static DNS servers (WSL auto-generation doesn't work)
+  # Use static DNS servers - these will be written to /etc/resolv.conf by WSL
   networking.nameservers = [ "8.8.8.8" "1.1.1.1" ];
 
-  # FORCE NixOS to create /etc/resolv.conf as a real file (not symlink)
-  # This overrides WSL's symlink to /mnt/wsl/resolv.conf
-  environment.etc."resolv.conf" = {
-    mode = "0644";
-    text = ''
-      # NixOS managed DNS configuration
-      # DO NOT EDIT - This file is managed by NixOS
-      nameserver 8.8.8.8
-      nameserver 1.1.1.1
-    '';
-  };
+  # Disable NixOS's resolvconf to avoid conflicts with WSL
+  networking.resolvconf.enable = false;
 
   # === User Configuration ===
   users.users.${username} = {
