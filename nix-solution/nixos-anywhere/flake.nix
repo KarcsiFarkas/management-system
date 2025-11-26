@@ -250,7 +250,7 @@
             ../nix-flake/modules/nixos/services/traefik.nix
             ../nix-flake/modules/nixos/services/jellyfin.nix
             # ../nix-flake/modules/nixos/services/homer.nix # Replaced
-            
+
             # Local Service Modules
             ./common/services/vaultwarden.nix
             ./common/services/gitea.nix
@@ -260,6 +260,17 @@
             # WSL-specific configuration
             ./hosts/wsl-paas/default.nix
           ];
+        };
+
+        # NixOS VM 01 - Testing nixos-anywhere deployment
+        # Tenant: nix (nix.karcsilab.duckdns.org)
+        # Services: Gitea
+        nixos-vm-01 = mkTenantHost {
+          hostname = "nixos-vm-01";
+          tenant = "nix";
+          system = "x86_64-linux";
+          diskLayout = "standard-mbr";
+          username = "nixadmin";
         };
       };
 

@@ -37,7 +37,7 @@ This deployment system provides:
 ### Core Features
 
 - ✅ **nixos-anywhere Integration**: Remote, unattended NixOS installation
-- ✅ **Disko Disk Layouts**: Multiple disk configuration templates (GPT, LVM, BTRFS)
+- ✅ **Disko Disk Layouts**: Multiple disk configuration templates (BIOS/MBR, GPT/EFI, LVM, BTRFS)
 - ✅ **sops-nix Secrets**: Encrypted secret management with age
 - ✅ **Tenant Configuration**: Automatic loading of tenant-specific settings from ms-config
 - ✅ **Service Modules**: 18+ integrated PaaS services (Traefik, Vaultwarden, Nextcloud, etc.)
@@ -46,11 +46,12 @@ This deployment system provides:
 
 ### Disk Layouts
 
-Three pre-configured disk layouts:
+Four pre-configured disk layouts:
 
 1. **standard-gpt**: Simple GPT with EFI boot + ext4 root
 2. **standard-gpt-lvm**: LVM for flexible partition management
 3. **btrfs-subvolumes**: BTRFS with subvolumes and compression
+4. **standard-mbr**: Legacy BIOS/MBR with ext4 /boot and /
 
 ### Integrated Services
 
@@ -207,6 +208,7 @@ nixos-anywhere/
 ├── disk-configs/                   # Disko disk layouts
 │   ├── standard-gpt.nix            # Simple GPT + EFI
 │   ├── standard-gpt-lvm.nix        # LVM layout
+│   ├── standard-mbr.nix            # Legacy BIOS/MBR layout
 │   └── btrfs-subvolumes.nix        # BTRFS with subvolumes
 │
 ├── hosts/                          # Host-specific configurations
@@ -323,6 +325,17 @@ diskLayout = "standard-gpt";
 Partitions:
 - 512MB EFI boot
 - Remaining space: ext4 root
+
+#### Legacy BIOS / MBR (No EFI)
+
+```nix
+diskLayout = "standard-mbr";
+```
+
+Partitions:
+- 1GB ext4 `/boot` (marked bootable)
+- Remaining space: ext4 root
+- GRUB installed in MBR (`/dev/sda`), EFI disabled
 
 #### LVM (Flexible)
 

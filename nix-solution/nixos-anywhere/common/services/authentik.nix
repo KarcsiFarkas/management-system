@@ -12,78 +12,33 @@ in
   };
 
   config = mkIf cfg.enable {
-    # Authentik needs Redis and Postgres
-    services.redis.servers.authentik = {
-      enable = true;
-      port = 6379;
-    };
+    # FIXME: Authentik is not available as a native NixOS service
+    # This module is currently disabled until we implement a Docker-based solution
+    # or Authentik is added to nixpkgs with a proper service module
 
-    services.postgresql = {
-      enable = true;
-      ensureDatabases = [ "authentik" ];
-      ensureUsers = [{
-        name = "authentik";
-        ensureDBOwnership = true;
-      }];
-    };
+    # NOTE: For now, users should deploy Authentik via Docker Compose
+    # See: management-system/docker-compose-solution/authelia/ for SSO alternative
 
-    services.authentik = {
-      enable = true;
-      # The official module creates the user/group
-      # It also handles the systemd service
-      
-      settings = {
-        email = {
-          host = "localhost";
-          port = 25;
-          use_tls = false;
-          use_ssl = false;
-          from = "authentik@localhost";
-        };
-        disable_startup_analytics = true;
-        avatars = "gravatar";
-      };
+    # Placeholder warning
+    warnings = [
+      "services.paas.authentik is not fully implemented yet. Use Docker Compose for Authentik deployment."
+    ];
 
-      # Environment file is required for secrets (Secret Key, DB password, etc.)
-      # For this WSL setup, we will create a generated one if it doesn't exist
-      # WARNING: In production, use sops-nix!
-      environmentFile = "/var/lib/authentik/authentik-env";
-    };
-
-    # Create a default environment file if it doesn't exist
-    systemd.services.authentik-setup-env = {
-      description = "Generate Authentik Environment File";
-      before = [ "authentik-server.service" "authentik-worker.service" ];
-      requiredBy = [ "authentik-server.service" "authentik-worker.service" ];
-      serviceConfig = {
-        Type = "oneshot";
-        User = "root";
-      };
-      script = ''
-        mkdir -p /var/lib/authentik
-        ENV_FILE="/var/lib/authentik/authentik-env"
-        
-        if [ ! -f "$ENV_FILE" ]; then
-          echo "Generating Authentik environment file..."
-          # Generate a random secret key
-          SECRET_KEY=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 50)
-          
-          cat > "$ENV_FILE" <<EOF
-        AUTHENTIK_SECRET_KEY=$SECRET_KEY
-        AUTHENTIK_ERROR_REPORTING__ENABLED=false
-        AUTHENTIK_POSTGRESQL__HOST=/run/postgresql
-        AUTHENTIK_POSTGRESQL__NAME=authentik
-        AUTHENTIK_POSTGRESQL__USER=authentik
-        AUTHENTIK_POSTGRESQL__PASSWORD=
-        AUTHENTIK_REDIS__HOST=127.0.0.1
-        AUTHENTIK_REDIS__PORT=6379
-        AUTHENTIK_REDIS__DB=0
-        EOF
-          chmod 600 "$ENV_FILE"
-          chown authentik:authentik "$ENV_FILE"
-        fi
-      '';
-    };
+    # FUTURE IMPLEMENTATION: Docker-based Authentik deployment
+    # virtualisation.docker.enable = true;
+    # systemd.services.authentik-docker = {
+    #   description = "Authentik Identity Provider (Docker)";
+    #   after = [ "docker.service" ];
+    #   requires = [ "docker.service" ];
+    #   wantedBy = [ "multi-user.target" ];
+    #   serviceConfig = {
+    #     Type = "oneshot";
+    #     RemainAfterExit = true;
+    #   };
+    #   script = ''
+    #     ${pkgs.docker-compose}/bin/docker-compose -f /etc/authentik/docker-compose.yml up -d
+    #   '';
+    # };
 
     # Open firewall ports
     networking.firewall.allowedTCPPorts = [ cfg.port ];

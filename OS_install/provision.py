@@ -400,7 +400,10 @@ def render_ansible_inventory(workdir: Path, vm: VMSpec, install: OSInstallConfig
     host_ip = install.network.address_cidr or vm.name
     if isinstance(host_ip, str) and "/" in host_ip:
         host_ip = host_ip.split("/", 1)[0].strip()
-    inv = {"all": {"children": {"ubuntu": {"hosts": {vm.name: {"ansible_host": host_ip}}}}}}
+
+    # Use correct inventory group based on OS type
+    inventory_group = install.os  # "ubuntu" or "nixos"
+    inv = {"all": {"children": {inventory_group: {"hosts": {vm.name: {"ansible_host": host_ip}}}}}}
     host_vars = {
         "ansible_user": ans_user,
         "ansible_password": tenant_password,

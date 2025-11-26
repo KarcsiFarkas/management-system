@@ -149,8 +149,8 @@ fi
 # === Pre-deployment Checks ===
 log_info "Starting deployment of '$HOSTNAME' to $TARGET_IP"
 
-# Check if configuration exists
-if ! nix flake show "$PROJECT_ROOT#nixosConfigurations.$HOSTNAME" &>/dev/null; then
+# Check if configuration exists (flake show doesn't accept attr paths; use nix eval)
+if ! nix eval "$PROJECT_ROOT#nixosConfigurations.${HOSTNAME}.config.system.build.toplevel" >/dev/null 2>&1; then
     log_error "Configuration '$HOSTNAME' not found in flake"
     log_info "Available configurations:"
     nix flake show "$PROJECT_ROOT" 2>/dev/null | grep "nixosConfigurations" -A 10 || true
