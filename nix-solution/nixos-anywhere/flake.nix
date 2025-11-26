@@ -248,9 +248,14 @@
 
             # Service modules
             ../nix-flake/modules/nixos/services/traefik.nix
-            ../nix-flake/modules/nixos/services/homer.nix
             ../nix-flake/modules/nixos/services/jellyfin.nix
-            # Add more services as needed when modules are fixed
+            # ../nix-flake/modules/nixos/services/homer.nix # Replaced
+            
+            # Local Service Modules
+            ./common/services/vaultwarden.nix
+            ./common/services/gitea.nix
+            ./common/services/homepage-dashboard.nix
+            ./common/services/authentik.nix
 
             # WSL-specific configuration
             ./hosts/wsl-paas/default.nix
