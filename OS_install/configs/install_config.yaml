@@ -72,15 +72,12 @@ installs:
 
   nixos-vm-01: # <-- This name MUST match the name in vm_specs.yaml
     os: nixos  # <-- This tells provision.py to use nixos_install.yml
-    version: "24.05"
+    version: "25.05"
 
     # Define the variables.nix that nixos_install.yml needs
     network:
       hostname: nixos-vm-01
-      dhcp: false
-      address_cidr: 192.168.1.80/24
-      gateway: 192.168.1.1
-      dns: [ "1.1.1.1" ]
+      dhcp: true
 
     users:
       - username: nixadmin
@@ -96,7 +93,5 @@ installs:
 
     # This list enables services in nixos_install.yml
     nix_services:
-      - syncthing
-      - gitlab
-      - plex
+      - gitea
       # Add other services from your selection.yml that you want enabled
