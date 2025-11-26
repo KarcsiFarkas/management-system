@@ -69,11 +69,15 @@ check_port_listening() {
 }
 
 # ========= Main Report =========
-clear
+# Only clear if running in an interactive terminal
+if [ -t 1 ]; then
+  clear
+fi
 print_header "NixOS PaaS Installation Status Report"
 
 # --- Get IP address and construct nip.io domain ---
-HOST_IP=$(ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1' | head -n1)
+# Get primary network interface IP (skip loopback, Docker bridges, and localhost aliases)
+HOST_IP=$(ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1' | grep -v '10.255.255.254' | grep -v -E '172\.(1[7-9]|2[0-2])\.' | head -n1)
 BASE_DOMAIN=$(nixos-option networking.domain 2>/dev/null | grep -oP '(?<=").*(?=")' | head -n1 || echo "${HOST_IP}.nip.io")
 HOSTNAME=$(get_hostname_or_ip)
 CURRENT_USER=$(whoami)
@@ -108,9 +112,29 @@ print_section "Reverse Proxy & Load Balancer"
 TRAEFIK_STATUS=$(get_service_status "traefik")
 if [[ "$TRAEFIK_STATUS" != "not-installed" ]]; then
   # Check both standard and WSL-specific ports
-  TRAEFIK_HTTP=$(check_port_listening 8090 && echo "8090" || check_port_listening 80 && echo "80" || echo "")
-  TRAEFIK_HTTPS=$(check_port_listening 8443 && echo "8443" || check_port_listening 443 && echo "443" || echo "")
-  TRAEFIK_DASH=$(check_port_listening 9080 && echo "9080" || check_port_listening 8080 && echo "8080" || echo "")
+  if check_port_listening 8090; then
+    TRAEFIK_HTTP="8090"
+  elif check_port_listening 80; then
+    TRAEFIK_HTTP="80"
+  else
+    TRAEFIK_HTTP=""
+  fi
+
+  if check_port_listening 8443; then
+    TRAEFIK_HTTPS="8443"
+  elif check_port_listening 443; then
+    TRAEFIK_HTTPS="443"
+  else
+    TRAEFIK_HTTPS=""
+  fi
+
+  if check_port_listening 9080; then
+    TRAEFIK_DASH="9080"
+  elif check_port_listening 8080; then
+    TRAEFIK_DASH="8080"
+  else
+    TRAEFIK_DASH=""
+  fi
 
   TRAEFIK_PORTS="HTTP:${TRAEFIK_HTTP:-off} HTTPS:${TRAEFIK_HTTPS:-off} Dashboard:${TRAEFIK_DASH:-off}"
   TRAEFIK_URL="http://traefik.${BASE_DOMAIN}:${TRAEFIK_DASH}/dashboard/"
@@ -374,12 +398,10 @@ fi
 # ========= Quick Access URLs =========
 print_section "Quick Access URLs"
 
-cat <<EOF
-${BOLD}Common Services:${NC}
-  ${CYAN}SSH:${NC}          ssh ${CURRENT_USER}@${HOSTNAME}
-  ${CYAN}Mosh:${NC}         mosh ${CURRENT_USER}@${HOSTNAME}
-
-EOF
+echo -e "${BOLD}Common Services:${NC}"
+echo -e "  ${CYAN}SSH:${NC}          ssh ${CURRENT_USER}@${HOSTNAME}"
+echo -e "  ${CYAN}Mosh:${NC}         mosh ${CURRENT_USER}@${HOSTNAME}"
+echo ""
 
 # Collect all active web services USING TRAEFIK DOMAINS
 declare -A WEB_SERVICES
@@ -410,8 +432,8 @@ if [[ ${#WEB_SERVICES[@]} -gt 0 ]]; then
   # Sort keys for consistent output
   mapfile -t sorted_keys < <(printf "%s\n" "${!WEB_SERVICES[@]}" | sort)
   for service in "${sorted_keys[@]}"; do
-    # Simple alignment
-    printf "  %-20s %s\n" "${CYAN}${service}:${NC}" "${WEB_SERVICES[$service]}"
+    # Use echo instead of printf to avoid color code formatting issues
+    echo -e "  ${CYAN}${service}:${NC} ${WEB_SERVICES[$service]}"
   done
 fi
 

@@ -94,7 +94,8 @@ in
           websecure = {
             address = ":${toString cfg.ports.https}";
           };
-          traefik-dash = {
+          # Dashboard entrypoint - MUST be named "traefik" for api.insecure mode
+          traefik = {
             address = ":${toString cfg.ports.dashboard}";
           };
         };
@@ -107,11 +108,11 @@ in
 
         # === Official Providers ===
         providers = {
-          # Watch for dynamic config files
-          file = {
-            directory = "/etc/traefik/dynamic"; # Standard directory
-            watch = true; #
-          };
+          # NOTE: Do NOT configure providers.file here!
+          # The NixOS module automatically sets providers.file.filename to point to
+          # the dynamically generated config from dynamicConfigOptions.
+          # Any settings here will be merged with the automatic config, causing conflicts.
+
           docker = { # Example: Enable Docker provider if needed
             exposedByDefault = false; #
             # network = "traefik_net"; # If using Docker networking with NixOS
@@ -245,7 +246,7 @@ in
             dashboard = {
               rule = "Host(`traefik.${baseDomain}`)";
               service = "api@internal";
-              entryPoints = [ "traefik-dash" ];
+              entryPoints = [ "traefik" ];
             };
           })
         ];
