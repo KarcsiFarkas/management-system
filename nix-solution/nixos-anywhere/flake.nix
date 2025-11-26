@@ -130,19 +130,21 @@
           ../nix-flake/modules/nixos/services/jellyfin.nix
           ../nix-flake/modules/nixos/services/syncthing.nix
 
+          # === Local Service Modules (Fixed/New) ===
+          ./common/services/vaultwarden.nix
+          ./common/services/gitea.nix
+          ./common/services/homepage-dashboard.nix
+          ./common/services/authentik.nix
+
           # FIXME: These modules have configuration errors and need to be fixed:
           # - authelia: No upstream NixOS module
-          # - gitea: Invalid config options (services.gitea.http)
           # - nextcloud, gitlab, immich, seafile: Config option issues
           # - firefly-iii, freshrss: Config option issues
-          # - vaultwarden, homer: Needs testing
           # - vikunja, navidrome: Needs testing
           # - qbittorrent, radarr, sonarr: Needs testing
 
           # Uncomment after fixing:
-          # ../nix-flake/modules/nixos/services/vaultwarden.nix
           # ../nix-flake/modules/nixos/services/homer.nix
-          # ../nix-flake/modules/nixos/services/gitea.nix
           # ../nix-flake/modules/nixos/services/vikunja.nix
           # ../nix-flake/modules/nixos/services/navidrome.nix
           # ../nix-flake/modules/nixos/services/qbittorrent.nix

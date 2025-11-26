@@ -47,6 +47,7 @@ OPTIONS:
     -k, --ssh-key PATH      Path to SSH private key
     -p, --ssh-port PORT     SSH port (default: 22)
     -d, --debug             Enable debug output
+    -y, --yes               Run non-interactively (skip confirmation)
     --no-reboot             Don't reboot after installation
     --no-kexec              Skip kexec phase
     --disk-device DEVICE    Override disk device (default: /dev/sda)
@@ -73,6 +74,7 @@ SSH_USER="root"
 SSH_KEY=""
 SSH_PORT="22"
 DEBUG=false
+ASSUME_YES=false
 NO_REBOOT=false
 NO_KEXEC=false
 DISK_DEVICE=""
@@ -95,6 +97,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -d|--debug)
             DEBUG=true
+            shift
+            ;;
+        -y|--yes)
+            ASSUME_YES=true
             shift
             ;;
         --no-reboot)
@@ -214,11 +220,15 @@ if [[ "$NO_REBOOT" != true ]]; then
     log_warning "  4. Reboot the target machine"
 fi
 echo ""
-read -p "$(echo -e "${YELLOW}Do you want to continue? [y/N]${NC} ")" -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    log_info "Deployment cancelled"
-    exit 0
+if [[ "$ASSUME_YES" == true ]]; then
+    log_info "--yes provided; skipping confirmation prompt"
+else
+    read -p "$(echo -e "${YELLOW}Do you want to continue? [y/N]${NC} ")" -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        log_info "Deployment cancelled"
+        exit 0
+    fi
 fi
 
 # === Execute Deployment ===

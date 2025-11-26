@@ -66,8 +66,13 @@
 
     # Authentication & Management
     # authelia.enable = true;  # Uncomment when module is fixed
-    homer.enable = true;
-    # vaultwarden.enable = true;  # Uncomment when module is fixed
+    # homer.enable = true; # Replaced by homepage-dashboard
+    vaultwarden.enable = true;
+    authentik = {
+      enable = true;
+      port = 9000;
+      domain = "auth.172.26.159.132.nip.io";
+    };
 
     # Storage & Collaboration
     # nextcloud.enable = true;  # Uncomment when module is fixed
@@ -76,7 +81,90 @@
     jellyfin.enable = true;
 
     # Development
-    # gitea.enable = true;  # Uncomment as needed
+    gitea.enable = true;
+    
+    # Dashboard
+    homepage-dashboard.enable = true;
+  };
+
+  # === Homepage Dashboard Configuration ===
+  services.homepage-dashboard = {
+    services = [
+      {
+        "PaaS Services" = [
+          {
+            "Traefik" = {
+              icon = "traefik.svg";
+              href = "http://traefik.172.26.159.132.nip.io:8090";
+              description = "Reverse Proxy Dashboard";
+            };
+          }
+          {
+            "Authentik" = {
+              icon = "authentik.svg";
+              href = "http://auth.172.26.159.132.nip.io:8090";
+              description = "Identity Provider";
+            };
+          }
+          {
+            "Jellyfin" = {
+              icon = "jellyfin.svg";
+              href = "http://jellyfin.172.26.159.132.nip.io:8090";
+              description = "Media Server";
+            };
+          }
+          {
+            "Vaultwarden" = {
+              icon = "bitwarden.svg";
+              href = "http://vaultwarden.172.26.159.132.nip.io:8090";
+              description = "Password Manager";
+            };
+          }
+          {
+            "Gitea" = {
+              icon = "gitea.svg";
+              href = "http://gitea.172.26.159.132.nip.io:8090";
+              description = "Git Server";
+            };
+          }
+        ];
+      }
+    ];
+    widgets = [
+      {
+        resources = {
+          cpu = true;
+          memory = true;
+          disk = "/";
+        };
+      }
+    ];
+  };
+
+  # === Traefik Configuration for Homepage & Authentik ===
+  services.traefik.dynamicConfigOptions = {
+    http.routers = {
+      homepage = {
+        rule = "Host(`dashboard.172.26.159.132.nip.io`)";
+        service = "homepage";
+        entryPoints = [ "web" "websecure" ];
+      };
+      authentik = {
+        rule = "Host(`auth.172.26.159.132.nip.io`)";
+        service = "authentik";
+        entryPoints = [ "web" "websecure" ];
+        priority = 10; # Ensure it captures auth requests
+      };
+    };
+    
+    http.services = {
+      homepage.loadBalancer.servers = [
+        { url = "http://127.0.0.1:8082"; }
+      ];
+      authentik.loadBalancer.servers = [
+        { url = "http://127.0.0.1:9000"; }
+      ];
+    };
   };
 
   # === Docker Support ===
@@ -93,9 +181,13 @@
       8090  # Traefik HTTP (WSL-specific)
       8443  # Traefik HTTPS (WSL-specific)
       9080  # Traefik dashboard (WSL-specific)
-      8088  # Homer
+      # 8088  # Homer
+      8082  # Homepage Dashboard
       8096  # Jellyfin HTTP
       8920  # Jellyfin HTTPS
+      8222  # Vaultwarden
+      3000  # Gitea
+      9000  # Authentik
     ];
   };
 

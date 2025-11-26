@@ -48,6 +48,8 @@ OPTIONS:
     -u, --user USER         SSH user (default: root)
     -k, --ssh-key PATH      Path to SSH private key
     -d, --debug             Enable debug output
+    -y, --yes               Run non-interactively (skip confirmation)
+    --disk-device DEVICE    Override disk device (passes through to deploy.sh)
     --services "svc1,svc2"  Comma-separated list of services to enable
     -h, --help              Show this help message
 
@@ -68,6 +70,8 @@ EOF
 SSH_USER="root"
 SSH_KEY=""
 DEBUG=false
+ASSUME_YES=false
+DISK_DEVICE=""
 SERVICES=""
 TENANT=""
 HOSTNAME=""
@@ -85,6 +89,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         -d|--debug)
             DEBUG=true
+            shift
+            ;;
+        --disk-device)
+            DISK_DEVICE="$2"
+            shift 2
+            ;;
+        -y|--yes)
+            ASSUME_YES=true
             shift
             ;;
         --services)
@@ -195,6 +207,14 @@ if [[ "$DEBUG" == true ]]; then
     DEPLOY_CMD+=("--debug")
 fi
 
+if [[ -n "$DISK_DEVICE" ]]; then
+    DEPLOY_CMD+=("--disk-device" "$DISK_DEVICE")
+fi
+
+if [[ "$ASSUME_YES" == true ]]; then
+    DEPLOY_CMD+=("--yes")
+fi
+
 # Add hostname and target
 DEPLOY_CMD+=("$HOSTNAME" "$TARGET_IP")
 
@@ -212,11 +232,15 @@ fi
 echo ""
 
 # === Confirm Deployment ===
-read -p "$(echo -e "${YELLOW}Proceed with deployment? [y/N]${NC} ")" -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    log_info "Deployment cancelled"
-    exit 0
+if [[ "$ASSUME_YES" == true ]]; then
+    log_info "--yes provided; skipping confirmation prompt"
+else
+    read -p "$(echo -e "${YELLOW}Proceed with deployment? [y/N]${NC} ")" -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        log_info "Deployment cancelled"
+        exit 0
+    fi
 fi
 
 # === Execute Deployment ===
