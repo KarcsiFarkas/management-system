@@ -60,3 +60,15 @@ vms:
       - bridge: vmbr0     # Your Proxmox bridge
     proxmox:
       node: fkarcsi         # Your Proxmox node name
+
+  - name: nixos-vm-02  # NixOS VM using alternative template (7000)
+    hypervisor: proxmox
+    cpus: 8
+    memory_mb: 16384
+    disks:
+      - size_gb: 80
+        storage: local-lvm
+    netifs:
+      - bridge: vmbr0
+    proxmox:
+      node: fkarcsi

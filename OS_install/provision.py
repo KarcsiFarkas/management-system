@@ -84,6 +84,7 @@ class OSInstallConfig(BaseModel):
     docker: bool = False
     nix_services: list[str] = Field(default_factory=list)
     partitioning: dict[str, Any] = Field(default_factory=dict)
+    template_profile: Optional[str] = None  # e.g., "nixos_template_alt" for custom template
 
 class VMSpec(BaseModel):
     name: str
@@ -328,6 +329,13 @@ def render_tf_module(workdir: Path, vm: VMSpec, install: OSInstallConfig, defaul
     ubuntu_template = str(defaults.proxmox_provider.get("ubuntu_template", "9000"))
     nixos_template = str(defaults.proxmox_provider.get("nixos_template", "9100"))
 
+    # Check if a custom template profile is specified in install config
+    if install.template_profile:
+        if os_type == "ubuntu":
+            ubuntu_template = str(defaults.proxmox_provider.get(install.template_profile, ubuntu_template))
+        else:  # nixos
+            nixos_template = str(defaults.proxmox_provider.get(install.template_profile, nixos_template))
+
     # Allow env override for NixOS template
     if os_type == "nixos":
         nixos_template = os.environ.get("NIXOS_TEMPLATE", nixos_template)
@@ -415,6 +423,13 @@ def render_ansible_inventory(workdir: Path, vm: VMSpec, install: OSInstallConfig
         "partitioning": install.partitioning,
         "users": [u.model_dump() for u in install.users],
     }
+
+    # NixOS requires explicit Python interpreter path
+    # NixOS uses /run/current-system/sw/bin/python3 when python3 is in environment.systemPackages
+    if install.os == "nixos":
+        host_vars["ansible_python_interpreter"] = "/run/current-system/sw/bin/python3"
+        # NixOS templates typically have 'nixos' as the sudo password
+        host_vars["ansible_become_password"] = "nixos"
 
     ssh_args = (defaults.ansible_defaults or {}).get("ssh_common_args")
     if ssh_args:
@@ -507,15 +522,17 @@ async def terraform_apply(tf_dir: Path, max_retries: int = 2) -> dict[str, Any]:
 
     return {}  # Should not be reached
 
-async def check_vm_health(vm_ip: str, vm_name: str, ssh_user: str, timeout: int = 300, identity_file: Optional[Path] = None) -> bool:
+async def check_vm_health(vm_ip: str, vm_name: str, ssh_user: str, timeout: int = 300, identity_file: Optional[Path] = None, os_type: str = "ubuntu") -> bool:
     """
-    Check if VM is healthy and cloud-init has completed.
+    Check if VM is healthy and ready for configuration.
 
     Args:
         vm_ip: IP address of the VM
         vm_name: Name of the VM
         ssh_user: The username to SSH with (e.g., 'ubuntu' or 'devops')
         timeout: Maximum time to wait in seconds
+        identity_file: SSH private key file path
+        os_type: OS type ('ubuntu' or 'nixos') to determine health check strategy
     """
     print(f"🏥 Checking health of VM {vm_name} at {vm_ip} as user {ssh_user}...")
 
@@ -546,7 +563,13 @@ async def check_vm_health(vm_ip: str, vm_name: str, ssh_user: str, timeout: int 
             if proc.returncode == 0:
                 print(f"✅ SSH is responsive on {vm_ip}")
 
-                # Check cloud-init status
+                # NixOS VMs use Proxmox NoCloud initialization, not cloud-init
+                # Just verify system is accessible
+                if os_type == "nixos":
+                    print(f"✅ NixOS VM {vm_name} is ready (using Proxmox NoCloud initialization)")
+                    return True
+
+                # Check cloud-init status for Ubuntu VMs
                 proc = await asyncio.create_subprocess_exec(
                     *base_cmd,
                     f"{ssh_user}@{vm_ip}",
@@ -581,6 +604,68 @@ async def ansible_play(playbook: Path, inventory: Path, extra_vars_file: Path) -
     if DEBUG:
         args.insert(1, "-vvv")
     await run_cmd(*args)
+
+async def deploy_with_nixos_anywhere(
+    vm_name: str,
+    vm_ip: str,
+    ssh_user: str = "root",
+    ssh_key: Optional[Path] = None,
+    flake_path: Optional[Path] = None
+) -> bool:
+    """
+    Deploy NixOS configuration using nixos-anywhere.
+
+    Args:
+        vm_name: Hostname in flake.nix (e.g., "nixos-vm-01")
+        vm_ip: Target VM IP address
+        ssh_user: SSH user for connection (default: root)
+        ssh_key: Path to SSH private key
+        flake_path: Path to flake directory (default: ../nix-solution/nixos-anywhere)
+
+    Returns:
+        True if deployment succeeded, False otherwise
+    """
+    # Default flake path relative to OS_install directory
+    if flake_path is None:
+        flake_path = Path(__file__).parent.parent / "nix-solution" / "nixos-anywhere"
+
+    flake_path = flake_path.resolve()
+
+    if not flake_path.exists():
+        print(f"❌ nixos-anywhere flake not found at {flake_path}")
+        return False
+
+    print(f"🚀 Deploying NixOS configuration for '{vm_name}' to {vm_ip} using nixos-anywhere")
+    print(f"   Flake: {flake_path}")
+
+    # Build nixos-anywhere command
+    args = [
+        "nix", "run", "github:nix-community/nixos-anywhere", "--",
+        "--flake", f"{flake_path}#{vm_name}",
+        "--target-host", f"{ssh_user}@{vm_ip}",
+    ]
+
+    # Add SSH key if provided
+    if ssh_key:
+        args.extend(["--ssh-option", f"IdentityFile={ssh_key}"])
+
+    # Add common SSH options
+    args.extend([
+        "--ssh-option", "StrictHostKeyChecking=no",
+        "--ssh-option", "UserKnownHostsFile=/dev/null",
+    ])
+
+    if DEBUG:
+        args.append("--debug")
+
+    try:
+        print(f"📦 Running: {' '.join(str(a) for a in args)}")
+        await run_cmd(*args)
+        print(f"✅ nixos-anywhere deployment completed successfully for {vm_name}")
+        return True
+    except Exception as e:
+        print(f"❌ nixos-anywhere deployment failed: {e}")
+        return False
 
 async def provision_host(
     root_build: Path,
@@ -643,6 +728,7 @@ async def provision_host(
                             ssh_user,
                             timeout=300,
                             identity_file=tenant_key_path,
+                            os_type=install.os,
                         )
                         if not healthy:
                             print(f"⚠️  Warning: VM {vm.name} may not be fully ready")
@@ -661,7 +747,22 @@ async def provision_host(
                 if install.os == "ubuntu":
                     await ansible_play(Path("ansible/playbooks/ubuntu_install.yml"), inv, vars_file)
                 elif install.os == "nixos":
-                    await ansible_play(Path("ansible/playbooks/nixos_install.yml"), inv, vars_file)
+                    # Try nixos-anywhere first (full declarative deployment)
+                    print("🎯 Attempting nixos-anywhere deployment (primary method)")
+                    nixos_anywhere_success = await deploy_with_nixos_anywhere(
+                        vm_name=vm.name,
+                        vm_ip=vm_ip_for_tasks,
+                        ssh_user="root",
+                        ssh_key=tenant_key_path
+                    )
+
+                    if not nixos_anywhere_success:
+                        # Fallback to Ansible (minimal configuration)
+                        print("⚠️  nixos-anywhere failed, falling back to Ansible playbook")
+                        print("   Note: This provides minimal configuration only")
+                        await ansible_play(Path("ansible/playbooks/nixos_install.yml"), inv, vars_file)
+                    else:
+                        print("✅ NixOS deployed successfully with full configuration via nixos-anywhere")
 
             # Common post config (hardening, ntp, fqdn, etc.)
             if "post" in targets:

@@ -9,6 +9,7 @@ proxmox_provider:
   pm_api_url: "https://192.168.1.111:8006/api2/json"
   ubuntu_template: 9000
   nixos_template: 8000
+  nixos_template_alt: 7000  # Alternative NixOS template
   # Auth via env:
   #   PM_API_TOKEN_ID=terraform@pve!iac  PM_API_TOKEN_SECRET=...
 

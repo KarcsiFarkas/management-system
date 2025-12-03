@@ -24,6 +24,7 @@ installs:
       dns:
         - 1.1.1.1
         - 9.9.9.9
+        - 8.8.8.8
       interfaces:
         - bridge: vmbr0
           vlan: null
@@ -95,3 +96,27 @@ installs:
     nix_services:
       - gitea
       # Add other services from your selection.yml that you want enabled
+
+  nixos-vm-02: # Uses alternative template (7000)
+    os: nixos
+    version: "25.05"
+    template_profile: "nixos_template_alt"  # Uses template ID 7000
+
+    network:
+      hostname: nixos-vm-02
+      dhcp: true
+
+    users:
+      - username: nixadmin
+        sudo: true
+        shell: /bin/bash
+        ssh_authorized_keys:
+          - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAFIEjyg0u7hl40wE27/BKSo+yZih5Aumax/PTgGVQ1t root@Karcsi"
+
+    packages:
+      - git
+      - vim
+      - htop
+
+    nix_services:
+      - openssh
