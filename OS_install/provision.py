@@ -263,6 +263,17 @@ def render_tf_module(workdir: Path, vm: VMSpec, install: OSInstallConfig, defaul
     ssh_key = pub_key_path.read_text().strip()
     _ = ensure_tenant_password(tenant_name)  # still generated for compatibility if needed
 
+    # Proxmox Admin SSH Key (for Terraform provider connection)
+    # Attempts to find the user's default key to connect to the Proxmox host
+    proxmox_ssh_key = Path.home() / ".ssh" / "id_ed25519"
+    if not proxmox_ssh_key.exists():
+        proxmox_ssh_key = Path.home() / ".ssh" / "id_rsa"
+    
+    if not proxmox_ssh_key.exists():
+        # Fallback or warn? For now, warn and use tenant key as last resort fallback (unlikely to work)
+        print(f"⚠️  Warning: No default SSH key found in ~/.ssh/. Using tenant key for Proxmox connection (likely to fail).")
+        proxmox_ssh_key = priv_key_path
+
     # Provider endpoint (no secrets here)
     endpoint = str(defaults.proxmox_provider.get("pm_api_url", "")).strip()
     if not endpoint:
@@ -366,7 +377,7 @@ def render_tf_module(workdir: Path, vm: VMSpec, install: OSInstallConfig, defaul
         # Access
         "ssh_key": ssh_key,
         "vm_username": vm_user,
-        "proxmox_ssh_private_key_path": str(priv_key_path),
+        "proxmox_ssh_private_key_path": str(proxmox_ssh_key),
     }
 
     if os_type == "ubuntu":
@@ -396,14 +407,29 @@ def render_ansible_inventory(workdir: Path, vm: VMSpec, install: OSInstallConfig
     pub_key = pub_key_path.read_text().strip()
     tenant_password = ensure_tenant_password(tenant_name)
 
-    if install.users:
-        for user in install.users:
-            if not user.ssh_authorized_keys:
-                user.ssh_authorized_keys.append(pub_key)
-    else:
-        install.users = [UserSpec(username="ubuntu", sudo=True, ssh_authorized_keys=[pub_key])]
+    # Determine effective Ansible user
+    first_configured_user = install.users[0].username if install.users else "ubuntu"
+    ans_user = username_override or first_configured_user
 
-    ans_user = username_override or (install.users[0].username if install.users else "ubuntu")
+    # Initialize users list if empty
+    if not install.users:
+        install.users = []
+
+    # Ensure all users have the key if missing, and check if ans_user exists
+    ans_user_found = False
+    for user in install.users:
+        if not user.ssh_authorized_keys:
+            user.ssh_authorized_keys.append(pub_key)
+        if user.username == ans_user:
+            ans_user_found = True
+            # Ensure the ansible user has the key
+            if pub_key not in user.ssh_authorized_keys:
+                user.ssh_authorized_keys.append(pub_key)
+
+    # If the target ansible user isn't in the list, add them
+    if not ans_user_found:
+        print(f"👤 Adding missing Ansible user '{ans_user}' to VM configuration")
+        install.users.append(UserSpec(username=ans_user, sudo=True, ssh_authorized_keys=[pub_key]))
 
     host_ip = install.network.address_cidr or vm.name
     if isinstance(host_ip, str) and "/" in host_ip:

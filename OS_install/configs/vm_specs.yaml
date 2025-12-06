@@ -17,6 +17,24 @@ vms:
       storage: local-lvm
       iso_storage: local
 
+  - name: vm-docker-all
+    tenant: docker-all
+    hypervisor: proxmox
+    boot_method: iso       # iso | image | pxe
+    cpus: 12
+    memory_mb: 24576
+    disks:
+      - size_gb: 100
+        storage: local-lvm
+        type: scsi
+    netifs:
+      - bridge: vmbr0
+        model: virtio
+    proxmox:
+      node: fkarcsi
+      storage: local-lvm
+      iso_storage: local
+
   - name: ci-runner-01
     hypervisor: proxmox
     boot_method: image

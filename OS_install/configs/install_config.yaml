@@ -35,6 +35,41 @@ installs:
     nix_services: []
 
 
+  vm-docker-all:
+    os: ubuntu
+    version: "24.04"
+    docker: true
+    packages:
+      - vim
+      - curl
+      - ca-certificates
+      - net-tools
+      - mosh
+    users:
+      - username: testuser
+        sudo: true
+        shell: /bin/bash
+        ssh_authorized_keys:
+          - "ssh-ed25519 AAAAB3Nza... testuser@local"
+    network:
+      hostname: vm-docker-all
+      domain: lab.local
+      dhcp: false
+      address_cidr: 192.168.1.21/24
+      gateway: 192.168.1.1
+      dns:
+        - 1.1.1.1
+        - 9.9.9.9
+        - 8.8.8.8
+      interfaces:
+        - bridge: vmbr0
+          vlan: null
+          mac: null
+          model: virtio
+          mtu: null
+    partitioning: {}
+    nix_services: []
+
   ci-runner-01:
     os: ubuntu
     version: "24.04"
